@@ -26,12 +26,14 @@ int main(int argc, const char *argv[])
     cv::Mat image, image_copy;
     cv::Mat camera_matrix, dist_coeffs;
     std::ostringstream vector_to_marker;
+
     cv::VideoCapture in_video;
     in_video.open(0);
+
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-    cv::FileStorage fs("/home/kbisland/markertracker/calibration_params.yml", cv::FileStorage::READ);
+    cv::FileStorage fs("../calibration_params.yml", cv::FileStorage::READ);
 //    cv::FileStorage fs(argv[2], cv::FileStorage::READ);
 
     fs["camera_matrix"] >> camera_matrix;
@@ -45,6 +47,8 @@ int main(int argc, const char *argv[])
     int image_width = in_video.get(CV_CAP_PROP_FRAME_WIDTH);
     int image_height = in_video.get(CV_CAP_PROP_FRAME_HEIGHT);
     int fps = 60;
+
+
     cv::VideoWriter video(
             "out.avi", CV_FOURCC('M', 'J', 'P', 'G'), fps,
             cv::Size(image_width, image_height), true
@@ -60,13 +64,14 @@ int main(int argc, const char *argv[])
 
     while (in_video.grab()){
         in_video.retrieve(image);
+
         image.copyTo(image_copy);
-        frame = cv::Scalar(49, 52, 49);
+        frame = cv::Scalar(30, 40, 40);
         if(state == 0) {
-            cvui::text(frame, 20, 30, "Please select marker to pick up ");
+            cvui::text(frame, 20, 30, "Please select marker to pick up ", 0.5, 0xffffff);
         }
         else if(state == 1){
-            cvui::text(frame, 20, 30, "Please select Placement marker ");
+            cvui::text(frame, 20, 30, "Please select Placement marker ", 0.5, 0xffffff);
         }
         std::vector<int> ids;
         std::vector<std::vector<cv::Point2f>> corners;
@@ -135,10 +140,13 @@ int main(int argc, const char *argv[])
             }
         }
         cvui::image(frame, 375, 10, image_copy);
-        if (cvui::button(frame, 30, 80, "&Quit")) {
-            //do button press
+        if (cvui::button(frame, 30, 80,120,40 ,  "&Pick")) {
+            state = 0;
         }
-
+        if (cvui::button(frame, 180, 80,120,40 , "&Place")) {
+            state = 1;
+        }
+        cvui::rect(frame, 60, 10, 130, 90, 0xff0000);
         cvui::update();
 
         // Show everything on the screen
