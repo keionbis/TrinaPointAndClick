@@ -12,12 +12,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5e745d36-3d07-47a2-98ea-4822e8666e6a" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/calibration_params.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cmake-build-debug/CMakeFiles/CVgui.dir/main.cpp.o" beforeDir="false" afterPath="$PROJECT_DIR$/cmake-build-debug/CMakeFiles/CVgui.dir/main.cpp.o" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cmake-build-debug/CVgui" beforeDir="false" afterPath="$PROJECT_DIR$/cmake-build-debug/CVgui" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cmake-build-debug/out.avi" beforeDir="false" afterPath="$PROJECT_DIR$/cmake-build-debug/out.avi" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/main.cpp" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -68,7 +63,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1572921429546</updated>
-      <workItem from="1572921430739" duration="10630000" />
+      <workItem from="1572921430739" duration="13814000" />
     </task>
     <servers />
   </component>

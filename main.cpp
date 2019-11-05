@@ -49,11 +49,6 @@ int main(int argc, const char *argv[])
     int fps = 60;
 
 
-    cv::VideoWriter video(
-            "out.avi", CV_FOURCC('M', 'J', 'P', 'G'), fps,
-            cv::Size(image_width, image_height), true
-    );
-
 //    cv::Mat image = cv::Mat(980, 600, CV_8UC3);
 
     // Init cvui and tell it to create a OpenCV window, i.e. cv::namedWindow(WINDOW_NAME).
@@ -71,7 +66,7 @@ int main(int argc, const char *argv[])
             cvui::text(frame, 20, 30, "Please select marker to pick up ", 0.5, 0xffffff);
         }
         else if(state == 1){
-            cvui::text(frame, 20, 30, "Please select Placement marker ", 0.5, 0xffffff);
+            cvui::text(frame, 20, 30, "Please select placement marker ", 0.5, 0xffffff);
         }
         std::vector<int> ids;
         std::vector<std::vector<cv::Point2f>> corners;
@@ -83,14 +78,17 @@ int main(int argc, const char *argv[])
 
         if (cvui::mouse(cvui::CLICK)) {
             //cvui::text(image_copy, 10, 70, "Mouse was clicked!");
-            if((cvui::mouse().x>=375)&&((cvui::mouse().y>=10)&&(cvui::mouse().y<=490)))
-                printf("Image Clicked at %d %d \n", cvui::mouse().x, cvui::mouse().y);
-            //if pick up marker exists in this area & is selected and state == 0
-            if(state == 0) {
-                state = 1;
-            }
-            else{
-                state = 0;
+            if((cvui::mouse().x>=375)&&((cvui::mouse().y>=10)&&(cvui::mouse().y<=490))) {
+
+                //if pick up marker exists in this area & is selected and state == 0
+                if (state == 0) {
+                    printf("Picking Up at %d %d \n", cvui::mouse().x, cvui::mouse().y);
+                }
+                else{
+                    printf("Placing Up at %d %d \n", cvui::mouse().x, cvui::mouse().y);
+
+                }
+
             }
 
             //if state == 1 && place marker exists here
@@ -146,11 +144,34 @@ int main(int argc, const char *argv[])
         if (cvui::button(frame, 180, 80,120,40 , "&Place")) {
             state = 1;
         }
-        cvui::rect(frame, 60, 10, 130, 90, 0xff0000);
+
+        if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
+
+        }
+        if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
+
+        }
+
+        if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
+
+        }
+        if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
+
+        }
+
+
+        cvui::rect(frame, 10, 200, 300, 300, 0xffffff);
+        //x pos
+        cvui::rect(frame, 50, 230, 60, 20, 0xffffff);
+        cvui::printf(frame, 55, 235, "%d", 100);
+        cvui::rect(frame, 50, 270, 60, 20, 0xffffff);
+        cvui::printf(frame, 55, 275, "%d", 100);
+        cvui::rect(frame, 50, 310, 60, 20, 0xffffff);
+        cvui::printf(frame, 55, 315, "%d", 100);
+
         cvui::update();
 
         // Show everything on the screen
-        video.write(image_copy);
         cv::imshow(WINDOW_NAME, frame);
 
         // Check if ESC key was pressed
