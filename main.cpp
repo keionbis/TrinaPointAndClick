@@ -8,7 +8,11 @@
 #include "cvui.h"
 
 #define WINDOW_NAME	"Autonomous Grasping"
-
+// function headers
+void UIButtons(void);
+void OffsetsWindow(void);
+void updateDialog();
+void CheckMouse();
 void drawCubeWireFrame(
         cv::InputOutputArray image, cv::InputArray cameraMatrix,
         cv::InputArray distCoeffs, cv::InputArray rvec, cv::InputArray tvec,
@@ -16,18 +20,22 @@ void drawCubeWireFrame(
 );
 
 
+//global variables
+static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
+static int state = 0;
+
+
 int main(int argc, const char *argv[])
 {
-    int state = 0;
     int wait_time = 10;
     float actual_marker_l = 0.101; // this should be in meters
-    cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
 
     cv::Mat image, image_copy;
     cv::Mat camera_matrix, dist_coeffs;
     std::ostringstream vector_to_marker;
 
     cv::VideoCapture in_video;
+
     in_video.open(0);
 
     cv::Ptr<cv::aruco::Dictionary> dictionary =
@@ -39,58 +47,28 @@ int main(int argc, const char *argv[])
     fs["camera_matrix"] >> camera_matrix;
     fs["distortion_coefficients"] >> dist_coeffs;
 
+    //camera calibration data
     std::cout << "camera_matrix\n"
               << camera_matrix << std::endl;
     std::cout << "\ndist coeffs\n"
               << dist_coeffs << std::endl;
 
-    int image_width = in_video.get(CV_CAP_PROP_FRAME_WIDTH);
-    int image_height = in_video.get(CV_CAP_PROP_FRAME_HEIGHT);
-    int fps = 60;
-
-
 
     // Init cvui and tell it to create a OpenCV window, i.e. cv::namedWindow(WINDOW_NAME).
     cvui::init(WINDOW_NAME);
+    
 
-    // Rectangle to be rendered according to mouse interactions.
-    cv::Rect rectangle(0, 0, 0, 0);
-
-    while (in_video.grab()){
+    while (in_video.grab()){ //Loop while video exists
+//Start Image Processing
         in_video.retrieve(image);
 
         image.copyTo(image_copy);
-        frame = cv::Scalar(30, 40, 40);
-        if(state == 0) {
-            cvui::text(frame, 20, 30, "Please select marker to pick up ", 0.5, 0xffffff);
-        }
-        else if(state == 1){
-            cvui::text(frame, 20, 30, "Please select placement marker ", 0.5, 0xffffff);
-        }
+
+        frame = cv::Scalar(40, 40, 40); //set UI color
+
         std::vector<int> ids;
         std::vector<std::vector<cv::Point2f>> corners;
         cv::aruco::detectMarkers(image, dictionary, corners, ids);
-
-        // Fill the image with a nice color
-
-        // Did any mouse button go down?
-
-        if (cvui::mouse(cvui::CLICK)) {
-            //cvui::text(image_copy, 10, 70, "Mouse was clicked!");
-            if((cvui::mouse().x>=375)&&((cvui::mouse().y>=10)&&(cvui::mouse().y<=490))) {
-
-                //if pick up marker exists in this area & is selected and state == 0
-                if (state == 0) {
-                    printf("Picking Up at %d %d \n", cvui::mouse().x, cvui::mouse().y);
-                }
-                else{
-                    printf("Placing Up at %d %d \n", cvui::mouse().x, cvui::mouse().y);
-
-                }
-
-            }
-        }
-
 
         // if at least one marker detected
         if (ids.size() > 0)
@@ -111,53 +89,21 @@ int main(int argc, const char *argv[])
                 );
             }
         }
+//End Image Processing
+
         cvui::image(frame, 375, 10, image_copy);
-        if (cvui::button(frame, 30, 80,120,40 ,  "&Pick")) {
-            state = 0;
-        }
-        if (cvui::button(frame, 180, 80,120,40 , "&Place")) {
-            state = 1;
-        }
 
-        if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
+        updateDialog(); //update the dialog box
 
-        }
-        if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
+        UIButtons(); //display and check buttons
 
-        }
+        CheckMouse(); //monitor the mouse input
 
-        if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
+        OffsetsWindow(); //display offsets window
 
-        }
-        if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
-
-        }
-
-
-        cvui::rect(frame, 10, 200, 300, 300, 0xffffff);
-        cvui::text(frame, 45, 250, "Where It Be ", 0.4, 0xffffff);
-
-        //x pos
-        cvui::rect(frame, 50, 270, 60, 20, 0xffffff);
-        cvui::printf(frame, 55, 275, "%d", 100);
-        //y pos
-        cvui::rect(frame, 50, 310, 60, 20, 0xffffff);
-        cvui::printf(frame, 55, 315, "%d", 100);
-        //z pos
-        cvui::rect(frame, 50, 350, 60, 20, 0xffffff);
-        cvui::printf(frame, 55, 355, "%d", 100);
-
-        cvui::text(frame, 185, 250, "Twisty Boiz", 0.4, 0xffffff);
-        cvui::rect(frame, 190, 270, 60, 20, 0xffffff);
-        cvui::printf(frame, 195, 275, "%d", 100);
-        cvui::rect(frame, 190, 310, 60, 20, 0xffffff);
-        cvui::printf(frame, 195, 315, "%d", 100);
-        cvui::rect(frame, 190, 350, 60, 20, 0xffffff);
-        cvui::printf(frame, 195, 355, "%d", 100);
-
-        cvui::update();
 
         // Show everything on the screen
+        cvui::update();
         cv::imshow(WINDOW_NAME, frame);
 
         // Check if ESC key was pressed
@@ -216,4 +162,85 @@ void drawCubeWireFrame(
     cv::line(image, imagePoints[4], imagePoints[7], cv::Scalar(255, 0, 0), 3);
     cv::line(image, imagePoints[5], imagePoints[6], cv::Scalar(255, 0, 0), 3);
     cv::line(image, imagePoints[6], imagePoints[7], cv::Scalar(255, 0, 0), 3);
+}
+
+
+
+void UIButtons(){
+    if (cvui::button(frame, 30, 80,120,40 ,  "&Pick")) {
+        state = 0;
+    }
+    if (cvui::button(frame, 180, 80,120,40 , "&Place")) {
+        state = 1;
+    }
+
+    if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
+
+    }
+    if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
+
+    }
+
+    if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
+
+    }
+    if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
+
+    }
+    if (cvui::button(frame, 30, 550, 150, 40,"&Auxiliary Camera")){
+        //launch secondary window and display camera images there
+    }
+}
+
+
+
+void OffsetsWindow(){
+
+    cvui::rect(frame, 10, 200, 300, 300, 0xffffff);
+    cvui::text(frame, 45, 250, "Where It Be ", 0.4, 0xffffff);
+
+    //x pos
+    cvui::rect(frame, 50, 270, 60, 20, 0xffffff);
+    cvui::printf(frame, 55, 275, "%d", 100);
+    //y pos
+    cvui::rect(frame, 50, 310, 60, 20, 0xffffff);
+    cvui::printf(frame, 55, 315, "%d", 100);
+    //z pos
+    cvui::rect(frame, 50, 350, 60, 20, 0xffffff);
+    cvui::printf(frame, 55, 355, "%d", 100);
+
+    cvui::text(frame, 185, 250, "Twisty Boiz", 0.4, 0xffffff);
+    cvui::rect(frame, 190, 270, 60, 20, 0xffffff);
+    cvui::printf(frame, 195, 275, "%d", 100);
+    cvui::rect(frame, 190, 310, 60, 20, 0xffffff);
+    cvui::printf(frame, 195, 315, "%d", 100);
+    cvui::rect(frame, 190, 350, 60, 20, 0xffffff);
+    cvui::printf(frame, 195, 355, "%d", 100);
+}
+
+void updateDialog(){
+    if(state == 0) {
+        cvui::text(frame, 20, 30, "Please select marker to pick up ", 0.5, 0xffffff);
+    }
+    else if(state == 1){
+        cvui::text(frame, 20, 30, "Please select placement marker ", 0.5, 0xffffff);
+    }
+}
+
+void CheckMouse(){
+    if (cvui::mouse(cvui::CLICK)) {
+        //cvui::text(image_copy, 10, 70, "Mouse was clicked!");
+        if((cvui::mouse().x>=375)&&((cvui::mouse().y>=10)&&(cvui::mouse().y<=490))) {
+
+            //if pick up marker exists in this area & is selected and state == 0
+            if (state == 0) {
+                printf("Picking Up at %d %d \n", cvui::mouse().x, cvui::mouse().y);
+            }
+            else{
+                printf("Placing Up at %d %d \n", cvui::mouse().x, cvui::mouse().y);
+
+            }
+
+        }
+    }
 }
