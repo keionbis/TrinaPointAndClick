@@ -49,7 +49,6 @@ int main(int argc, const char *argv[])
     int fps = 60;
 
 
-//    cv::Mat image = cv::Mat(980, 600, CV_8UC3);
 
     // Init cvui and tell it to create a OpenCV window, i.e. cv::namedWindow(WINDOW_NAME).
     cvui::init(WINDOW_NAME);
@@ -90,12 +89,9 @@ int main(int argc, const char *argv[])
                 }
 
             }
-
-            //if state == 1 && place marker exists here
-
-
-
         }
+
+
         // if at least one marker detected
         if (ids.size() > 0)
         {
@@ -113,28 +109,6 @@ int main(int argc, const char *argv[])
                         image_copy, camera_matrix, dist_coeffs, rvecs[i], tvecs[i],
                         actual_marker_l
                 );
-
-
-                vector_to_marker.str(std::string());
-                vector_to_marker << std::setprecision(4)
-                                 << "x: " << std::setw(8) << tvecs[0](0);
-                cv::putText(image_copy, vector_to_marker.str(),
-                            cvPoint(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.6,
-                            cvScalar(0, 252, 124), 1, CV_AA);
-
-                vector_to_marker.str(std::string());
-                vector_to_marker << std::setprecision(4)
-                                 << "y: " << std::setw(8) << tvecs[0](1);
-                cv::putText(image_copy, vector_to_marker.str(),
-                            cvPoint(10, 50), cv::FONT_HERSHEY_SIMPLEX, 0.6,
-                            cvScalar(0, 252, 124), 1, CV_AA);
-
-                vector_to_marker.str(std::string());
-                vector_to_marker << std::setprecision(4)
-                                 << "z: " << std::setw(8) << tvecs[0](2);
-                cv::putText(image_copy, vector_to_marker.str(),
-                            cvPoint(10, 70), cv::FONT_HERSHEY_SIMPLEX, 0.6,
-                            cvScalar(0, 252, 124), 1, CV_AA);
             }
         }
         cvui::image(frame, 375, 10, image_copy);
@@ -161,13 +135,25 @@ int main(int argc, const char *argv[])
 
 
         cvui::rect(frame, 10, 200, 300, 300, 0xffffff);
+        cvui::text(frame, 45, 250, "Where It Be ", 0.4, 0xffffff);
+
         //x pos
-        cvui::rect(frame, 50, 230, 60, 20, 0xffffff);
-        cvui::printf(frame, 55, 235, "%d", 100);
         cvui::rect(frame, 50, 270, 60, 20, 0xffffff);
         cvui::printf(frame, 55, 275, "%d", 100);
+        //y pos
         cvui::rect(frame, 50, 310, 60, 20, 0xffffff);
         cvui::printf(frame, 55, 315, "%d", 100);
+        //z pos
+        cvui::rect(frame, 50, 350, 60, 20, 0xffffff);
+        cvui::printf(frame, 55, 355, "%d", 100);
+
+        cvui::text(frame, 185, 250, "Twisty Boiz", 0.4, 0xffffff);
+        cvui::rect(frame, 190, 270, 60, 20, 0xffffff);
+        cvui::printf(frame, 195, 275, "%d", 100);
+        cvui::rect(frame, 190, 310, 60, 20, 0xffffff);
+        cvui::printf(frame, 195, 315, "%d", 100);
+        cvui::rect(frame, 190, 350, 60, 20, 0xffffff);
+        cvui::printf(frame, 195, 355, "%d", 100);
 
         cvui::update();
 
@@ -200,7 +186,7 @@ void drawCubeWireFrame(
     );
     CV_Assert(l > 0);
     float half_l = l / 2.0;
-
+    l /=2;
     // project cube points
     std::vector<cv::Point3f> axisPoints;
     axisPoints.push_back(cv::Point3f(half_l, half_l, l));
