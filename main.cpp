@@ -1,14 +1,15 @@
 #include <iostream>
-#include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/aruco.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/opencv.hpp>
 #define CVUI_IMPLEMENTATION
 #include "cvui.h"
+#include "AuxCameraDisplay.h"
 
 #define WINDOW_NAME	"Autonomous Grasping"
-// function headers
+
+// function declarations
 void UIButtons(void);
 void OffsetsWindow(void);
 void updateDialog();
@@ -18,45 +19,51 @@ void drawCubeWireFrame(
         cv::InputArray distCoeffs, cv::InputArray rvec, cv::InputArray tvec,
         float l
 );
+void publishAllTheRos(void);
+
+typedef struct Marker{
+    int ID;
+    int timesSeen;
+    float location[4]; //xmin, xmax, ymin, ymax
+
+}Marker;
 
 
 //global variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
 static int state = 0;
-
+bool AuxCameraOpen = false;
+Marker Markers[512];
+std::vector<Marker> ConfirmedMarkers;
+Marker tmpData;
+Marker PickLocation = {0xFFFFFF, 0, {0,0,0,0}};;
+Marker PlaceLocation = {0xFFFFFF, 0, {0,0,0,0}};;
+Marker ClearSet = {0xFFFFFF, 0, {0,0,0,0}};
 
 int main(int argc, const char *argv[])
 {
     int wait_time = 10;
     float actual_marker_l = 0.101; // this should be in meters
-
     cv::Mat image, image_copy;
     cv::Mat camera_matrix, dist_coeffs;
     std::ostringstream vector_to_marker;
 
     cv::VideoCapture in_video;
 
-    in_video.open(0);
+    in_video.open(0);//Camera index should be a passed parameter
 
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-    cv::FileStorage fs("../calibration_params.yml", cv::FileStorage::READ);
-//    cv::FileStorage fs(argv[2], cv::FileStorage::READ);
+    cv::FileStorage fs("../calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+//    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
     fs["distortion_coefficients"] >> dist_coeffs;
 
-    //camera calibration data
-    std::cout << "camera_matrix\n"
-              << camera_matrix << std::endl;
-    std::cout << "\ndist coeffs\n"
-              << dist_coeffs << std::endl;
-
-
     // Init cvui and tell it to create a OpenCV window, i.e. cv::namedWindow(WINDOW_NAME).
     cvui::init(WINDOW_NAME);
-    
+
 
     while (in_video.grab()){ //Loop while video exists
 //Start Image Processing
@@ -69,6 +76,8 @@ int main(int argc, const char *argv[])
         std::vector<int> ids;
         std::vector<std::vector<cv::Point2f>> corners;
         cv::aruco::detectMarkers(image, dictionary, corners, ids);
+
+
 
         // if at least one marker detected
         if (ids.size() > 0)
@@ -83,6 +92,10 @@ int main(int argc, const char *argv[])
             // draw axis for each marker
             for (int i = 0; i < ids.size(); i++)
             {
+
+                if(ids[i]<512){
+                    Markers[ids[i]] = {ids[i], 0, {corners[i][0].x, corners[i][3].x, corners[i][0].y, corners[i][3].y}};
+                }
                 drawCubeWireFrame(
                         image_copy, camera_matrix, dist_coeffs, rvecs[i], tvecs[i],
                         actual_marker_l
@@ -91,7 +104,7 @@ int main(int argc, const char *argv[])
         }
 //End Image Processing
 
-        cvui::image(frame, 375, 10, image_copy);
+        cvui::image(frame, 375, 10, image_copy); //Display image into the interface
 
         updateDialog(); //update the dialog box
 
@@ -101,6 +114,10 @@ int main(int argc, const char *argv[])
 
         OffsetsWindow(); //display offsets window
 
+        publishAllTheRos(); //exactly what the function name says
+        if(AuxCameraOpen){
+            monitorAuxCam();
+        }
 
         // Show everything on the screen
         cvui::update();
@@ -111,6 +128,8 @@ int main(int argc, const char *argv[])
             break;
         }
     }
+
+
     in_video.release();
 
     return 0;
@@ -175,20 +194,26 @@ void UIButtons(){
     }
 
     if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
-
+        //stop publishers running
     }
     if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
-
+        PickLocation  = ClearSet;
+        PlaceLocation = ClearSet;
+        printf("%d, %d, %.2f, %.2f, %.2f, %.2f \n\r", PickLocation.ID, PickLocation.timesSeen, PickLocation.location[0],PickLocation.location[1], PickLocation.location[2], PickLocation.location[3]);
+        printf("%d, %d, %.2f, %.2f, %.2f, %.2f \n\r", PlaceLocation.ID, PlaceLocation.timesSeen, PlaceLocation.location[0],PlaceLocation.location[1], PlaceLocation.location[2], PlaceLocation.location[3]);
+        //stop publishers running
     }
 
     if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
 
     }
     if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
-
+        //tell robot to go to its neutral pose
     }
-    if (cvui::button(frame, 30, 550, 150, 40,"&Auxiliary Camera")){
+    if ((cvui::button(frame, 30, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
         //launch secondary window and display camera images there
+        //StartCameraDisplay();
+        //AuxCameraOpen = true;
     }
 }
 
@@ -231,16 +256,46 @@ void CheckMouse(){
     if (cvui::mouse(cvui::CLICK)) {
         //cvui::text(image_copy, 10, 70, "Mouse was clicked!");
         if((cvui::mouse().x>=375)&&((cvui::mouse().y>=10)&&(cvui::mouse().y<=490))) {
-
+            int mouseX = cvui::mouse().x-375;
+            int mouseY = cvui::mouse().y-10;
             //if pick up marker exists in this area & is selected and state == 0
             if (state == 0) {
-                printf("Picking Up at %d %d \n", cvui::mouse().x, cvui::mouse().y);
+                printf("Picking Up at %d %d \n", mouseX, mouseY);
+
+
+                PickLocation = {10, 0, {1,2,3,4}};
             }
             else{
-                printf("Placing Up at %d %d \n", cvui::mouse().x, cvui::mouse().y);
+                printf("Placing at %d %d \n",  mouseX, mouseY);
+                PlaceLocation = {20, 0, {5,6,7,8}};
 
             }
+            printf("%d, %d, %.2f, %.2f, %.2f, %.2f \n\r", PickLocation.ID, PickLocation.timesSeen, PickLocation.location[0],PickLocation.location[1], PickLocation.location[2], PickLocation.location[3]);
+            printf("%d, %d, %.2f, %.2f, %.2f, %.2f \n\r", PlaceLocation.ID, PlaceLocation.timesSeen, PlaceLocation.location[0],PlaceLocation.location[1], PlaceLocation.location[2], PlaceLocation.location[3]);
 
         }
     }
 }
+
+
+
+void publishAllTheRos(void){
+
+}
+
+Marker checkifMarkerExists(int ID){
+    std::vector<Marker>::iterator ite;
+
+    //ite = std::find_if(IDsSeen.begin(), IDsSeen.end(),  [](Marker& f){ return f.ID == ID; } );
+    return *ite;
+}
+
+void appendMarkerToVector(int ID){
+    Marker marker = checkifMarkerExists(ID);
+    if(marker.ID == 0 && marker.timesSeen == 0 && marker.location[0]  == marker.location[1] ){//if response was null
+
+    }
+}
+
+
+
