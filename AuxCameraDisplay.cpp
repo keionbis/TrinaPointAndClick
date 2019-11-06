@@ -48,7 +48,6 @@ void UpdateDisplay(){
 //}
 
 void monitorAuxCam(){
-    cvui::context(name);
 
     if (cvui::button(frame, 350, 420,120,40, "&Previous")) {
         printf("PreviousCam");

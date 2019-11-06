@@ -8,6 +8,14 @@
 #include "AuxCameraDisplay.h"
 
 #define WINDOW_NAME	"Autonomous Grasping"
+#define CONFIRMATION 50
+
+typedef struct Marker{
+    int ID;
+    int timesSeen;
+    cv::Point2f location[4]; //xmin, xmax, ymin, ymax
+
+}Marker;
 
 // function declarations
 void UIButtons(void);
@@ -20,26 +28,19 @@ void drawCubeWireFrame(
         float l
 );
 void publishAllTheRos(void);
-
-typedef struct Marker{
-    int ID;
-    int timesSeen;
-    float location[4]; //xmin, xmax, ymin, ymax
-
-}Marker;
+void checkifMarkerExists(Marker marker);
+void MarkerIsReliable(Marker marker);
 
 
 //global variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
 static int state = 0;
 bool AuxCameraOpen = false;
-Marker Markers[512];
-std::vector<Marker> ConfirmedMarkers;
+std::vector<Marker> Markers;
+std::vector<Marker> ConfirmedIDs;
 Marker tmpData;
-Marker PickLocation = {0xFFFFFF, 0, {0,0,0,0}};;
-Marker PlaceLocation = {0xFFFFFF, 0, {0,0,0,0}};;
-Marker ClearSet = {0xFFFFFF, 0, {0,0,0,0}};
-
+Marker PickLocation ;
+Marker PlaceLocation;
 int main(int argc, const char *argv[])
 {
     int wait_time = 10;
@@ -82,6 +83,7 @@ int main(int argc, const char *argv[])
         // if at least one marker detected
         if (ids.size() > 0)
         {
+
             cv::aruco::drawDetectedMarkers(image_copy, corners, ids);
             std::vector<cv::Vec3d> rvecs, tvecs;
             cv::aruco::estimatePoseSingleMarkers(
@@ -92,10 +94,8 @@ int main(int argc, const char *argv[])
             // draw axis for each marker
             for (int i = 0; i < ids.size(); i++)
             {
-
-                if(ids[i]<512){
-                    Markers[ids[i]] = {ids[i], 0, {corners[i][0].x, corners[i][3].x, corners[i][0].y, corners[i][3].y}};
-                }
+               tmpData = {ids[i], 0, {corners[i][0],corners[i][1], corners[i][2], corners[i][3]}};
+                checkifMarkerExists(tmpData);
                 drawCubeWireFrame(
                         image_copy, camera_matrix, dist_coeffs, rvecs[i], tvecs[i],
                         actual_marker_l
@@ -197,10 +197,6 @@ void UIButtons(){
         //stop publishers running
     }
     if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
-        PickLocation  = ClearSet;
-        PlaceLocation = ClearSet;
-        printf("%d, %d, %.2f, %.2f, %.2f, %.2f \n\r", PickLocation.ID, PickLocation.timesSeen, PickLocation.location[0],PickLocation.location[1], PickLocation.location[2], PickLocation.location[3]);
-        printf("%d, %d, %.2f, %.2f, %.2f, %.2f \n\r", PlaceLocation.ID, PlaceLocation.timesSeen, PlaceLocation.location[0],PlaceLocation.location[1], PlaceLocation.location[2], PlaceLocation.location[3]);
         //stop publishers running
     }
 
@@ -212,8 +208,8 @@ void UIButtons(){
     }
     if ((cvui::button(frame, 30, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
         //launch secondary window and display camera images there
-        //StartCameraDisplay();
-        //AuxCameraOpen = true;
+//        StartCameraDisplay();
+//        AuxCameraOpen = true;
     }
 }
 
@@ -263,11 +259,9 @@ void CheckMouse(){
                 printf("Picking Up at %d %d \n", mouseX, mouseY);
 
 
-                PickLocation = {10, 0, {1,2,3,4}};
             }
             else{
                 printf("Placing at %d %d \n",  mouseX, mouseY);
-                PlaceLocation = {20, 0, {5,6,7,8}};
 
             }
             printf("%d, %d, %.2f, %.2f, %.2f, %.2f \n\r", PickLocation.ID, PickLocation.timesSeen, PickLocation.location[0],PickLocation.location[1], PickLocation.location[2], PickLocation.location[3]);
@@ -283,19 +277,30 @@ void publishAllTheRos(void){
 
 }
 
-Marker checkifMarkerExists(int ID){
-    std::vector<Marker>::iterator ite;
-
-    //ite = std::find_if(IDsSeen.begin(), IDsSeen.end(),  [](Marker& f){ return f.ID == ID; } );
-    return *ite;
-}
-
-void appendMarkerToVector(int ID){
-    Marker marker = checkifMarkerExists(ID);
-    if(marker.ID == 0 && marker.timesSeen == 0 && marker.location[0]  == marker.location[1] ){//if response was null
-
+void checkifMarkerExists(Marker marker){
+    for(std::vector<Marker>::iterator it = Markers.begin() ; it != Markers.end(); ++it){
+        if (it->ID == marker.ID){
+            it->timesSeen++;
+            if(it->timesSeen>=CONFIRMATION){
+                MarkerIsReliable(marker);
+            }
+            return;
+        }
     }
+    Markers.push_back(marker);
 }
 
+void MarkerIsReliable(Marker marker){
+    for(std::vector<Marker>::iterator it = ConfirmedIDs.begin() ; it != ConfirmedIDs.end(); ++it){
+        if (it->ID == marker.ID){
+            it->location[0] = marker.location[0];
+            it->location[1] = marker.location[1];
+            it->location[2] = marker.location[2];
+            it->location[3] = marker.location[3];
+            return;
+        }
+    }
+    ConfirmedIDs.push_back(marker);
+}
 
 
