@@ -257,14 +257,14 @@ void UIButtons(){
 
 void OffsetsWindow(){
 
-    cvui::rect(frame, 10, 200, 300, 300, 0xffffff);
-
+    cvui::rect(frame, 10, 200, 350, 210, 0xffffff);
+    cvui::text(frame, 125, 215, "Gripper Offsets", 0.5, 0xffffff);
     //position
-    cvui::beginColumn(frame, 30, 215, 100, 100,10);
+    cvui::beginColumn(frame, 40, 250, 145, 160,10);
 
         cvui::checkbox("Apply offsets", &ApplyOffsets, 0xffffff);
         cvui::space(5);
-        cvui::text("Where It Be(mm):", 0.4, 0xffffff);
+        cvui::text("Position (mm):", 0.4, 0xffffff);
 
         //x
         cvui::beginRow(-1,-1, 5);
@@ -287,11 +287,11 @@ void OffsetsWindow(){
     cvui::endColumn();
 
     //orientation
-    cvui::beginColumn(frame, 165, 215, 100, 100,10);
+    cvui::beginColumn(frame, 200, 250, 145, 160,10);
 
         cvui::checkbox("Live adjustments", &LiveOffsets, 0xffffff);
         cvui::space(5);
-        cvui::text("Twisty Boiz(deg):", 0.4, 0xffffff);
+        cvui::text("Rotation (deg):", 0.4, 0xffffff);
 
         //roll
         cvui::beginRow(-1,-1, 5);
