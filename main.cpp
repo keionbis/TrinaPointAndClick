@@ -30,7 +30,8 @@ void drawCubeWireFrame(
 void publishAllTheRos(void);
 void checkifMarkerExists(Marker marker);
 void MarkerIsReliable(Marker marker);
-
+void initialisePublishers();
+void initialiseSubscribers();
 
 //global variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
@@ -41,6 +42,12 @@ std::vector<Marker> ConfirmedIDs;
 Marker tmpData;
 Marker PickLocation ;
 Marker PlaceLocation;
+
+//void CurrentStatusCallback(const std_msgs::String::ConstPtr& msg){
+//  
+//}
+
+
 int main(int argc, const char *argv[])
 {
     int wait_time = 10;
@@ -48,6 +55,16 @@ int main(int argc, const char *argv[])
     cv::Mat image, image_copy;
     cv::Mat camera_matrix, dist_coeffs;
     std::ostringstream vector_to_marker;
+
+//    ros::init(argc, argv, "talker");
+//    ros::NodeHandle n;
+
+    // ros::Publisher MarkerPose = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
+    // ros::Publisher PickID = n.advertise<std_msgs::int>("PickID", 1000);
+    // ros::Publisher PlaceID = n.advertise<std_msgs::int>("PlaceID", 1000);
+    // ros::Publisher Command = n.advertise<std_msgs::String>("Command", 1000);
+
+    //ros::Subscriber sub = n.subscribe("chatter", 1000, CurrentStatusCallback);
 
     cv::VideoCapture in_video;
 
@@ -100,6 +117,20 @@ int main(int argc, const char *argv[])
                         image_copy, camera_matrix, dist_coeffs, rvecs[i], tvecs[i],
                         actual_marker_l
                 );
+
+//                Transform.header.stamp = ros::Time::now();
+//                Transform.header.frame_id = std::to_string(ids[i]);
+//                Transform.child_frame_id = "detected";
+//                Transform.transform.rotation.w = 0;
+//                Transform.transform.rotation.x = rvecs[i][0];
+//                Transform.transform.rotation.y = rvecs[i][1];
+//                Transform.transform.rotation.z = rvecs[i][2];
+//                Transform.transform.translation.x = tvecs[i][0];
+//                Transform.transform.translation.y = tvecs[i][1];
+//                Transform.transform.translation.z = tvecs[i][2];
+//
+//                MarkerTracker_Transform_pub.publish(Transform);
+
             }
         }
 //End Image Processing
@@ -260,12 +291,10 @@ void CheckMouse(){
 
 
             }
-            else{
-                printf("Placing at %d %d \n",  mouseX, mouseY);
+            else {
+                printf("Placing at %d %d \n", mouseX, mouseY);
 
             }
-            printf("%d, %d, %.2f, %.2f, %.2f, %.2f \n\r", PickLocation.ID, PickLocation.timesSeen, PickLocation.location[0],PickLocation.location[1], PickLocation.location[2], PickLocation.location[3]);
-            printf("%d, %d, %.2f, %.2f, %.2f, %.2f \n\r", PlaceLocation.ID, PlaceLocation.timesSeen, PlaceLocation.location[0],PlaceLocation.location[1], PlaceLocation.location[2], PlaceLocation.location[3]);
 
         }
     }
@@ -302,5 +331,4 @@ void MarkerIsReliable(Marker marker){
     }
     ConfirmedIDs.push_back(marker);
 }
-
 
