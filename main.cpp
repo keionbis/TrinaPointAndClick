@@ -44,7 +44,7 @@ Marker PickLocation ;
 Marker PlaceLocation;
 
 //void CurrentStatusCallback(const std_msgs::String::ConstPtr& msg){
-//  
+//
 //}
 
 
