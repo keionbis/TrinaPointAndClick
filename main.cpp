@@ -37,6 +37,15 @@ void initialiseSubscribers();
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
 static int state = 0;
 bool AuxCameraOpen = false;
+bool ApplyOffsets = false;
+bool LiveOffsets = false;
+int XOffset = 0; //in mm
+int YOffset = 0; //in mm
+int ZOffset = 0; //in mm
+int RollOffset = 0; //in degrees
+int PitchOffset = 0; //in degrees
+int YawOffset = 0; //in degrees
+
 std::vector<Marker> Markers;
 std::vector<Marker> ConfirmedIDs;
 Marker tmpData;
@@ -249,25 +258,62 @@ void UIButtons(){
 void OffsetsWindow(){
 
     cvui::rect(frame, 10, 200, 300, 300, 0xffffff);
-    cvui::text(frame, 45, 250, "Where It Be ", 0.4, 0xffffff);
 
-    //x pos
-    cvui::rect(frame, 50, 270, 60, 20, 0xffffff);
-    cvui::printf(frame, 55, 275, "%d", 100);
-    //y pos
-    cvui::rect(frame, 50, 310, 60, 20, 0xffffff);
-    cvui::printf(frame, 55, 315, "%d", 100);
-    //z pos
-    cvui::rect(frame, 50, 350, 60, 20, 0xffffff);
-    cvui::printf(frame, 55, 355, "%d", 100);
+    //position
+    cvui::beginColumn(frame, 30, 215, 100, 100,10);
 
-    cvui::text(frame, 185, 250, "Twisty Boiz", 0.4, 0xffffff);
-    cvui::rect(frame, 190, 270, 60, 20, 0xffffff);
-    cvui::printf(frame, 195, 275, "%d", 100);
-    cvui::rect(frame, 190, 310, 60, 20, 0xffffff);
-    cvui::printf(frame, 195, 315, "%d", 100);
-    cvui::rect(frame, 190, 350, 60, 20, 0xffffff);
-    cvui::printf(frame, 195, 355, "%d", 100);
+        cvui::checkbox("Apply offsets", &ApplyOffsets, 0xffffff);
+        cvui::space(5);
+        cvui::text("Where It Be(mm):", 0.4, 0xffffff);
+
+        //x
+        cvui::beginRow(-1,-1, 5);
+            cvui::text("x:", 0.5, 0xffffff);
+            cvui::counter(&XOffset,10,"%d");
+        cvui::endRow();
+
+        //y
+        cvui::beginRow(-1,-1,5);
+            cvui::text("y:", 0.5, 0xffffff);
+            cvui::counter(&YOffset,10,"%d");
+        cvui::endRow();
+
+        //z
+        cvui::beginRow(-1,-1,5);
+            cvui::text("z:", 0.5, 0xffffff);
+            cvui::counter(&ZOffset,10,"%d");
+        cvui::endRow();
+
+    cvui::endColumn();
+
+    //orientation
+    cvui::beginColumn(frame, 165, 215, 100, 100,10);
+
+        cvui::checkbox("Live adjustments", &LiveOffsets, 0xffffff);
+        cvui::space(5);
+        cvui::text("Twisty Boiz(deg):", 0.4, 0xffffff);
+
+        //roll
+        cvui::beginRow(-1,-1, 5);
+            cvui::text("Rx:", 0.5, 0xffffff);
+            cvui::counter(&RollOffset,45,"%d");
+        cvui::endRow();
+
+        //pitch
+        cvui::beginRow(-1,-1,5);
+            cvui::text("Ry:", 0.5, 0xffffff);
+            cvui::counter(&PitchOffset,45,"%d");
+        cvui::endRow();
+
+        //yaw
+        cvui::beginRow(-1,-1,5);
+            cvui::text("Rz:", 0.5, 0xffffff);
+            cvui::counter(&YawOffset,45,"%d");
+        cvui::endRow();
+
+    cvui::endColumn();
+
+
 }
 
 void updateDialog(){
