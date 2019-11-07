@@ -1,3 +1,5 @@
-cmake-build-debug/
-.idea/
-.idea/workspace.xml
+src/Trina-Point-And-Click/cmake-build-debug/
+src/Trina-Point-And-Click/.idea/
+src/Trina-Point-And-Click/.idea/workspace.xml
+build
+devel

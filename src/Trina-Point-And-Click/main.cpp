@@ -65,7 +65,7 @@ int main(int argc, const char *argv[])
     cv::Mat camera_matrix, dist_coeffs;
     std::ostringstream vector_to_marker;
 
-//    ros::init(argc, argv, "talker");
+//    ros::init(argc, argv, "listener");
 //    ros::NodeHandle n;
 
     // ros::Publisher MarkerPose = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
