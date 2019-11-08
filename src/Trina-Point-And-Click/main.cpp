@@ -65,6 +65,14 @@ Marker PlaceLocation;
 std_msgs::Bool currentRobotStatus; //is the robot doing things
 
 
+ros::Publisher MarkerPose;
+ros::Publisher GripperSpeed;
+ros::Publisher GripperClosePercent;
+ros::Publisher PickID;
+ros::Publisher PlaceID;
+ros::Publisher Command;
+ros::Publisher GripperStatepub;
+ros::Subscriber currentStatus;
 void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& msg){
     //currentRobotStatus = msg;
 }
@@ -81,17 +89,18 @@ int main(int argc, char *argv[])
     ros::init(argc, argv, "listener");
     ros::NodeHandle n;
 
-     ros::Publisher MarkerPose = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
-     ros::Publisher GripperSpeed = n.advertise<std_msgs::Int64>("GripperSpeed", 1000);
-     ros::Publisher GripperClosePercent = n.advertise<std_msgs::Int64>("GripperClosePercent", 1000);
-     ros::Publisher GripperState = n.advertise<std_msgs::Int64>("GripperState", 1000);
-     ros::Publisher PickID = n.advertise<std_msgs::Int64>("PickID", 1000);
-     ros::Publisher PlaceID = n.advertise<std_msgs::Int64>("PlaceID", 1000);
-     ros::Publisher Command = n.advertise<std_msgs::String>("Command", 1000);
+     MarkerPose = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
+     GripperSpeed = n.advertise<std_msgs::Int64>("GripperSpeed", 1000);
+     GripperClosePercent = n.advertise<std_msgs::Int64>("GripperClosePercent", 1000);
+     GripperStatepub = n.advertise<std_msgs::Int64>("GripperState", 1000);
+     PickID = n.advertise<std_msgs::Int64>("PickID", 1000);
+     PlaceID = n.advertise<std_msgs::Int64>("PlaceID", 1000);
+     Command = n.advertise<std_msgs::String>("Command", 1000);
 
-    ros::Subscriber sub = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
+    currentStatus = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
 
-     ros::Timer Publisher = n.createTimer(ros::Duration(0.1), publishAllTheRos);
+    ros::Timer Publisher = n.createTimer(ros::Duration(0.1), publishAllTheRos);
+
     cv::VideoCapture in_video;
 
     in_video.open(0);//Camera index should be a passed parameter
@@ -180,9 +189,10 @@ int main(int argc, char *argv[])
         cv::imshow(WINDOW_NAME, frame);
 
         // Check if ESC key was pressed
-        if (cv::waitKey(20) == 27) {
+        if (cv::waitKey(20) == 27|| cv::getWindowProperty(WINDOW_NAME, cv::WND_PROP_ASPECT_RATIO) < 0) {
             break;
         }
+
     }
 
 
