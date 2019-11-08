@@ -45,7 +45,9 @@ int ZOffset = 0; //in mm
 int RollOffset = 0; //in degrees
 int PitchOffset = 0; //in degrees
 int YawOffset = 0; //in degrees
-
+bool GripperOpen = false;
+int ClosePercent = 85; //Gripper close percent
+int CloseSpeedPercent = 20; //Gripper close speed percent
 std::vector<Marker> Markers;
 std::vector<Marker> ConfirmedIDs;
 Marker tmpData;
@@ -246,7 +248,7 @@ void UIButtons(){
     if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
         //tell robot to go to its neutral pose
     }
-    if ((cvui::button(frame, 30, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
+    if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
         //launch secondary window and display camera images there
 //        StartCameraDisplay();
 //        AuxCameraOpen = true;
@@ -257,10 +259,12 @@ void UIButtons(){
 
 void OffsetsWindow(){
 
-    cvui::rect(frame, 10, 200, 350, 210, 0xffffff);
-    cvui::text(frame, 125, 215, "Gripper Offsets", 0.5, 0xffffff);
+    //offset box
+    cvui::rect(frame, 10, 150, 350, 210, 0xffffff);
+    cvui::text(frame, 125, 165, "Gripper Offsets", 0.5, 0xffffff);
+
     //position
-    cvui::beginColumn(frame, 40, 250, 145, 160,10);
+    cvui::beginColumn(frame, 40, 200, 145, 160,10);
 
         cvui::checkbox("Apply offsets", &ApplyOffsets, 0xffffff);
         cvui::space(5);
@@ -287,7 +291,7 @@ void OffsetsWindow(){
     cvui::endColumn();
 
     //orientation
-    cvui::beginColumn(frame, 200, 250, 145, 160,10);
+    cvui::beginColumn(frame, 200, 200, 145, 160,10);
 
         cvui::checkbox("Live adjustments", &LiveOffsets, 0xffffff);
         cvui::space(5);
@@ -313,7 +317,36 @@ void OffsetsWindow(){
 
     cvui::endColumn();
 
+    //gripper box
+    cvui::rect(frame, 10, 380, 350, 210, 0xffffff);
+    cvui::text(frame, 125, 395, "Gripper Control", 0.5, 0xffffff);
 
+    cvui::beginColumn(frame, 30, 430, 310, 160,10);
+
+        //gripper toggle
+        cvui::beginRow(-1,-1,20);
+            cvui::space(5);
+            if(cvui::button(120, 40, "Open Gripper")){
+                GripperOpen = true;
+            }
+            if(cvui::button(120, 40, "Close Gripper")){
+                GripperOpen = false;
+            }
+        cvui::endRow();
+
+        // gripper close
+        cvui::beginRow(1,-1,5);
+            cvui::text("Gripper Close %", 0.4, 0xffffff);
+            cvui::trackbar(200, &ClosePercent, 70, 100, 6, "%.0Lf", cvui::TRACKBAR_DISCRETE, 5);
+        cvui::endRow();
+
+        // gripper close
+        cvui::beginRow(1,-1,5);
+            cvui::text("Gripper speed %", 0.4, 0xffffff);
+            cvui::trackbar(200, &CloseSpeedPercent, 0, 100, 5, "%.0Lf", cvui::TRACKBAR_DISCRETE, 10);
+        cvui::endRow();
+
+    cvui::endColumn();
 }
 
 void updateDialog(){
