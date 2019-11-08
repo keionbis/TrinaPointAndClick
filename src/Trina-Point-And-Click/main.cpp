@@ -46,6 +46,7 @@ int RollOffset = 0; //in degrees
 int PitchOffset = 0; //in degrees
 int YawOffset = 0; //in degrees
 bool GripperOpen = false;
+cv::String GripperState = "Open Gripper";
 int ClosePercent = 85; //Gripper close percent
 int CloseSpeedPercent = 20; //Gripper close speed percent
 std::vector<Marker> Markers;
@@ -326,12 +327,17 @@ void OffsetsWindow(){
         //gripper toggle
         cvui::beginRow(-1,-1,20);
             cvui::space(5);
-            if(cvui::button(120, 40, "Open Gripper")){
-                GripperOpen = true;
+            if(cvui::button(120, 40, GripperState)){
+                if (GripperOpen){
+                    GripperState = "Close Gripper";
+                }
+                else{
+                    GripperState = "Open Gripper";
+                }
+                GripperOpen =! GripperOpen;
+
             }
-            if(cvui::button(120, 40, "Close Gripper")){
-                GripperOpen = false;
-            }
+
         cvui::endRow();
 
         // gripper close
