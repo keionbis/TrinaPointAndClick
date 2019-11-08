@@ -55,8 +55,11 @@ Marker tmpData;
 Marker PickLocation ;
 Marker PlaceLocation;
 
-//void CurrentStatusCallback(const std_msgs::String::ConstPtr& msg){
-//
+bool currentRobotStatus = false; //is the robot doing things
+
+
+//void CurrentStatusCallback(const std_msgs::bool::ConstPtr& msg){
+//  Current = msg->data;
 //}
 
 
@@ -72,12 +75,16 @@ int main(int argc, const char *argv[])
 //    ros::NodeHandle n;
 
     // ros::Publisher MarkerPose = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
+    // ros::Publisher GripperSpeed = n.advertise<int>("GripperSpeed", 1000);
+    // ros::Publisher GripperClosePercent = n.advertise<int>("GripperClosePercent", 1000);
+    // ros::Publisher GripperState = n.advertise<int>("GripperState", 1000);
     // ros::Publisher PickID = n.advertise<std_msgs::int>("PickID", 1000);
     // ros::Publisher PlaceID = n.advertise<std_msgs::int>("PlaceID", 1000);
     // ros::Publisher Command = n.advertise<std_msgs::String>("Command", 1000);
 
-    //ros::Subscriber sub = n.subscribe("chatter", 1000, CurrentStatusCallback);
+    //ros::Subscriber sub = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
 
+    // ros::Timer Publisher = nh.createTimer(ros::Duration(0.1), publishAllTheRos);
     cv::VideoCapture in_video;
 
     in_video.open(0);//Camera index should be a passed parameter
@@ -225,7 +232,6 @@ void drawCubeWireFrame(
     cv::line(image, imagePoints[5], imagePoints[6], cv::Scalar(255, 0, 0), 3);
     cv::line(image, imagePoints[6], imagePoints[7], cv::Scalar(255, 0, 0), 3);
 }
-
 
 
 void UIButtons(){
@@ -387,7 +393,7 @@ void CheckMouse(){
 
 
 
-void publishAllTheRos(void){
+void publishAllTheRos(void){//const ros::TimerEvent&
 
 }
 
