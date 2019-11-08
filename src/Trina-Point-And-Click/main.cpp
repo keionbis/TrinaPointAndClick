@@ -6,6 +6,13 @@
 #define CVUI_IMPLEMENTATION
 #include "cvui.h"
 #include "AuxCameraDisplay.h"
+#include <ros/ros.h>
+#include "std_msgs/String.h"
+#include "std_msgs/Int64.h"
+#include "std_msgs/builtin_bool.h"
+#include "geometry_msgs/TransformStamped.h"
+#include "geometry_msgs/Point.h"
+#include "geometry_msgs/PoseStamped.h"
 
 #define WINDOW_NAME	"Autonomous Grasping"
 #define CONFIRMATION 50
@@ -27,7 +34,7 @@ void drawCubeWireFrame(
         cv::InputArray distCoeffs, cv::InputArray rvec, cv::InputArray tvec,
         float l
 );
-void publishAllTheRos(void);
+void publishAllTheRos(const ros::TimerEvent&);
 void checkifMarkerExists(Marker marker);
 void MarkerIsReliable(Marker marker);
 void initialisePublishers();
@@ -55,15 +62,15 @@ Marker tmpData;
 Marker PickLocation ;
 Marker PlaceLocation;
 
-bool currentRobotStatus = false; //is the robot doing things
+std_msgs::Bool currentRobotStatus; //is the robot doing things
 
 
-//void CurrentStatusCallback(const std_msgs::bool::ConstPtr& msg){
-//  Current = msg->data;
-//}
+void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& msg){
+    //currentRobotStatus = msg;
+}
 
 
-int main(int argc, const char *argv[])
+int main(int argc, char *argv[])
 {
     int wait_time = 10;
     float actual_marker_l = 0.101; // this should be in meters
@@ -71,20 +78,20 @@ int main(int argc, const char *argv[])
     cv::Mat camera_matrix, dist_coeffs;
     std::ostringstream vector_to_marker;
 
-//    ros::init(argc, argv, "listener");
-//    ros::NodeHandle n;
+    ros::init(argc, argv, "listener");
+    ros::NodeHandle n;
 
-    // ros::Publisher MarkerPose = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
-    // ros::Publisher GripperSpeed = n.advertise<int>("GripperSpeed", 1000);
-    // ros::Publisher GripperClosePercent = n.advertise<int>("GripperClosePercent", 1000);
-    // ros::Publisher GripperState = n.advertise<int>("GripperState", 1000);
-    // ros::Publisher PickID = n.advertise<std_msgs::int>("PickID", 1000);
-    // ros::Publisher PlaceID = n.advertise<std_msgs::int>("PlaceID", 1000);
-    // ros::Publisher Command = n.advertise<std_msgs::String>("Command", 1000);
+     ros::Publisher MarkerPose = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
+     ros::Publisher GripperSpeed = n.advertise<std_msgs::Int64>("GripperSpeed", 1000);
+     ros::Publisher GripperClosePercent = n.advertise<std_msgs::Int64>("GripperClosePercent", 1000);
+     ros::Publisher GripperState = n.advertise<std_msgs::Int64>("GripperState", 1000);
+     ros::Publisher PickID = n.advertise<std_msgs::Int64>("PickID", 1000);
+     ros::Publisher PlaceID = n.advertise<std_msgs::Int64>("PlaceID", 1000);
+     ros::Publisher Command = n.advertise<std_msgs::String>("Command", 1000);
 
-    //ros::Subscriber sub = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
+    ros::Subscriber sub = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
 
-    // ros::Timer Publisher = nh.createTimer(ros::Duration(0.1), publishAllTheRos);
+     ros::Timer Publisher = n.createTimer(ros::Duration(0.1), publishAllTheRos);
     cv::VideoCapture in_video;
 
     in_video.open(0);//Camera index should be a passed parameter
@@ -164,7 +171,6 @@ int main(int argc, const char *argv[])
 
         OffsetsWindow(); //display offsets window
 
-        publishAllTheRos(); //exactly what the function name says
         if(AuxCameraOpen){
             monitorAuxCam();
         }
@@ -394,7 +400,7 @@ void CheckMouse(){
 
 
 
-void publishAllTheRos(void){//const ros::TimerEvent&
+void publishAllTheRos(const ros::TimerEvent&){
 
 }
 
