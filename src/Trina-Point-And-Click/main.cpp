@@ -16,11 +16,12 @@
 
 #define WINDOW_NAME	"Autonomous Grasping"
 #define CONFIRMATION 50
-
+#define MAXCLICKERROR 50
 typedef struct Marker{
     int ID;
     int timesSeen;
     cv::Point2f location[4]; //xmin, xmax, ymin, ymax
+    cv::Point2f centroid; //xmin, xmax, ymin, ymax
 
 }Marker;
 
@@ -37,6 +38,7 @@ void drawCubeWireFrame(
 void publishAllTheRos(const ros::TimerEvent&);
 void checkifMarkerExists(Marker marker);
 void MarkerIsReliable(Marker marker);
+int LocateNearestMarker(cv::Point2f clickLocation);
 void initialisePublishers();
 void initialiseSubscribers();
 
@@ -146,7 +148,7 @@ int main(int argc, char *argv[])
             // draw axis for each marker
             for (int i = 0; i < ids.size(); i++)
             {
-               tmpData = {ids[i], 0, {corners[i][0],corners[i][1], corners[i][2], corners[i][3]}};
+               tmpData = {ids[i], 0, {corners[i][0],corners[i][1], corners[i][2], corners[i][3]}, {0,0}};
                 checkifMarkerExists(tmpData);
                 drawCubeWireFrame(
                         image_copy, camera_matrix, dist_coeffs, rvecs[i], tvecs[i],
@@ -396,7 +398,7 @@ void CheckMouse(){
             //if pick up marker exists in this area & is selected and state == 0
             if (state == 0) {
                 printf("Picking Up at %d %d \n", mouseX, mouseY);
-
+                LocateNearestMarker({mouseX, mouseY});
 
             }
             else {
@@ -434,9 +436,25 @@ void MarkerIsReliable(Marker marker){
             it->location[1] = marker.location[1];
             it->location[2] = marker.location[2];
             it->location[3] = marker.location[3];
+            it->centroid.x = (marker.location[0].x+marker.location[1].x+marker.location[2].x+marker.location[3].x)/4;
+            it->centroid.y = (marker.location[0].y+marker.location[1].y+marker.location[2].y+marker.location[3].y)/4;
             return;
         }
     }
     ConfirmedIDs.push_back(marker);
+}
+
+int LocateNearestMarker(cv::Point2f clickLocation) {
+    int nearestID;
+    cv::Point2f NearestMarerLocation = {0,0};
+    float disttoNearest = ((sqrt(pow((NearestMarerLocation.x-clickLocation.x),2))+(pow((NearestMarerLocation.y-clickLocation.y), 2))));
+    for (std::vector<Marker>::iterator it = ConfirmedIDs.begin(); it != ConfirmedIDs.end(); it++) {
+        float disttoCurrentMarer =(sqrt(pow((it->centroid.x-clickLocation.x), 2))+(pow((it->centroid.y-clickLocation.x), 2)));
+        if(disttoCurrentMarer<disttoNearest && disttoCurrentMarer<MAXCLICKERROR){
+            disttoNearest = disttoCurrentMarer;
+            nearestID = it->ID;
+        }
+    }
+    return nearestID;
 }
 
