@@ -331,9 +331,10 @@ void OffsetsWindow(){
     cvui::beginColumn(frame, 30, 430, 310, 160,10);
 
         //gripper toggle
-        cvui::beginRow(-1,-1,20);
-            cvui::space(5);
-            if(cvui::button(120, 40, GripperState)){
+        cvui::beginRow(-1,-1,10);
+            cvui::space(40);
+            cvui::space(35);
+           if(cvui::button(120, 40, GripperState)){
                 if (GripperOpen){
                     GripperState = "Close Gripper";
                 }
@@ -347,7 +348,7 @@ void OffsetsWindow(){
         cvui::endRow();
 
         // gripper close
-        cvui::beginRow(1,-1,5);
+        cvui::beginRow(1,-1,9);
             cvui::text("Gripper Close %", 0.4, 0xffffff);
             cvui::trackbar(200, &ClosePercent, 70, 100, 6, "%.0Lf", cvui::TRACKBAR_DISCRETE, 5);
         cvui::endRow();
