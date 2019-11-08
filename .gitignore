@@ -5,3 +5,4 @@ src/Trina-Point-And-Click/.idea/workspace.xml
 cmake-build-debug/
 build
 devel
+src/CMakeLists.txt
