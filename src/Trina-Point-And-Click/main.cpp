@@ -92,7 +92,7 @@ int main(int argc, const char *argv[])
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-    cv::FileStorage fs("../calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+    cv::FileStorage fs("../../../src/Trina-Point-And-Click/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
 //    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
