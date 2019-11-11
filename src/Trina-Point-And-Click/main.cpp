@@ -16,13 +16,20 @@
 
 #define WINDOW_NAME	"Autonomous Grasping"
 #define CONFIRMATION 50
+#define MAXCLICKERROR 1000
 
+
+//Marker Data Struct definition
 typedef struct Marker{
     int ID;
     int timesSeen;
     cv::Point2f location[4]; //xmin, xmax, ymin, ymax
+    cv::Point2f centroid; //xmin, xmax, ymin, ymax
 
 }Marker;
+
+
+
 
 // function declarations
 void UIButtons(void);
@@ -32,15 +39,20 @@ void CheckMouse();
 void drawCubeWireFrame(
         cv::InputOutputArray image, cv::InputArray cameraMatrix,
         cv::InputArray distCoeffs, cv::InputArray rvec, cv::InputArray tvec,
-        float l
+        float l, int id
 );
-void publishAllTheRos(const ros::TimerEvent&);
+void publishAllTheRos();
 void checkifMarkerExists(Marker marker);
 void MarkerIsReliable(Marker marker);
+int LocateNearestMarker(cv::Point2f clickLocation);
 void initialisePublishers();
 void initialiseSubscribers();
 
 //global variables
+//Marker vectors
+std::vector<Marker> Markers;
+std::vector<Marker> ConfirmedIDs;
+//CV Variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
 std::string Pick = "Please select marker to pick up.";
 std::string Place = "Please select marker to place.";
@@ -50,38 +62,40 @@ std::string Placing = "Placing object...";
 std::string Picked = "Object picked up!";
 std::string Placed = "Object placed!";
 static std::string state = Pick;
+
+//Publisher state variables
+static int state = 0;
 bool AuxCameraOpen = false;
 bool ApplyOffsets = false;
 bool LiveOffsets = false;
-int XOffset = 0; //in mm
-int YOffset = 0; //in mm
-int ZOffset = 0; //in mm
-int RollOffset = 0; //in degrees
-int PitchOffset = 0; //in degrees
-int YawOffset = 0; //in degrees
 bool GripperOpen = false;
+
+int XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
+int RollOffset = 0, PitchOffset = 0, YawOffset = 0; //in degrees
 cv::String GripperState = "Open Gripper";
-int ClosePercent = 85; //Gripper close percent
-int CloseSpeedPercent = 20; //Gripper close speed percent
-std::vector<Marker> Markers;
-std::vector<Marker> ConfirmedIDs;
+int ClosePercent = 85, CloseSpeedPercent = 20; //Gripper data
+
 Marker tmpData;
 Marker PickLocation ;
 Marker PlaceLocation;
+int PickID, PlaceID;
 
-std_msgs::Bool currentRobotStatus; //is the robot doing things
+//Ros publishers & subscribers
+ros::Publisher MarkerPosePublisher;
+ros::Publisher GripperSpeedPublisher;
+ros::Publisher GripperClosePercentPublisher;
+ros::Publisher PickIDPublisher;
+ros::Publisher PlaceIDPublisher;
+ros::Publisher CommandPublisher;
+ros::Publisher GripperStatePublisher;
+ros::Subscriber currentStatusSubscriber;
+
+bool currentRobotStatus = false;
 
 
-ros::Publisher MarkerPose;
-ros::Publisher GripperSpeed;
-ros::Publisher GripperClosePercent;
-ros::Publisher PickID;
-ros::Publisher PlaceID;
-ros::Publisher Command;
-ros::Publisher GripperStatepub;
-ros::Subscriber currentStatus;
-void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& msg){
-    //currentRobotStatus = msg;
+
+void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
+    currentRobotStatus = Status->data;
 }
 
 
@@ -96,18 +110,17 @@ int main(int argc, char *argv[])
     ros::init(argc, argv, "listener");
     ros::NodeHandle n;
 
-     MarkerPose = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
-     GripperSpeed = n.advertise<std_msgs::Int64>("GripperSpeed", 1000);
-     GripperClosePercent = n.advertise<std_msgs::Int64>("GripperClosePercent", 1000);
-     GripperStatepub = n.advertise<std_msgs::Int64>("GripperState", 1000);
-     PickID = n.advertise<std_msgs::Int64>("PickID", 1000);
-     PlaceID = n.advertise<std_msgs::Int64>("PlaceID", 1000);
-     Command = n.advertise<std_msgs::String>("Command", 1000);
+     MarkerPosePublisher = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
+     GripperSpeedPublisher = n.advertise<std_msgs::Int64>("GripperSpeed", 1000);
+     GripperClosePercentPublisher = n.advertise<std_msgs::Int64>("GripperClosePercent", 1000);
+     GripperStatePublisher = n.advertise<std_msgs::String>("GripperState", 1000);
+     PickIDPublisher = n.advertise<std_msgs::Int64>("PickID", 1000);
+     PlaceIDPublisher = n.advertise<std_msgs::Int64>("PlaceID", 1000);
+     CommandPublisher = n.advertise<std_msgs::String>("Command", 1000);
 
-    currentStatus = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
+    currentStatusSubscriber = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
 
-    ros::Timer Publisher = n.createTimer(ros::Duration(0.1), publishAllTheRos);
-
+    //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
 
     in_video.open(0);//Camera index should be a passed parameter
@@ -125,7 +138,7 @@ int main(int argc, char *argv[])
     cvui::init(WINDOW_NAME);
 
 
-    while (in_video.grab()){ //Loop while video exists
+    while (in_video.grab()&& ros::ok()){ //Loop while video exists
 //Start Image Processing
         in_video.retrieve(image);
 
@@ -153,11 +166,11 @@ int main(int argc, char *argv[])
             // draw axis for each marker
             for (int i = 0; i < ids.size(); i++)
             {
-               tmpData = {ids[i], 0, {corners[i][0],corners[i][1], corners[i][2], corners[i][3]}};
+               tmpData = {ids[i], 0, {corners[i][0],corners[i][1], corners[i][2], corners[i][3]}, {0,0}};
                 checkifMarkerExists(tmpData);
                 drawCubeWireFrame(
                         image_copy, camera_matrix, dist_coeffs, rvecs[i], tvecs[i],
-                        actual_marker_l
+                        actual_marker_l, ids[i]
                 );
 
 //                Transform.header.stamp = ros::Time::now();
@@ -187,9 +200,11 @@ int main(int argc, char *argv[])
 
         OffsetsWindow(); //display offsets window
 
-        if(AuxCameraOpen){
-            monitorAuxCam();
-        }
+        publishAllTheRos();// publish all the ros topics
+
+//        if(AuxCameraOpen){
+//            monitorAuxCam();
+//        }
 
         // Show everything on the screen
         cvui::update();
@@ -214,46 +229,51 @@ int main(int argc, char *argv[])
 void drawCubeWireFrame(
         cv::InputOutputArray image, cv::InputArray cameraMatrix,
         cv::InputArray distCoeffs, cv::InputArray rvec, cv::InputArray tvec,
-        float l
+        float l, int id
 )
 {
+    for(std::vector<Marker>::iterator it = ConfirmedIDs.begin() ; it != ConfirmedIDs.end(); ++it){
+        if(it->ID == id) {
+            CV_Assert(
+                    image.getMat().total() != 0 &&
+                    (image.getMat().channels() == 1 || image.getMat().channels() == 3)
+            );
+            CV_Assert(l > 0);
+            float half_l = l / 2.0;
+            l /= 2;
+            // project cube points
+            std::vector<cv::Point3f> axisPoints;
+            axisPoints.push_back(cv::Point3f(half_l, half_l, l));
+            axisPoints.push_back(cv::Point3f(half_l, -half_l, l));
+            axisPoints.push_back(cv::Point3f(-half_l, -half_l, l));
+            axisPoints.push_back(cv::Point3f(-half_l, half_l, l));
+            axisPoints.push_back(cv::Point3f(half_l, half_l, 0));
+            axisPoints.push_back(cv::Point3f(half_l, -half_l, 0));
+            axisPoints.push_back(cv::Point3f(-half_l, -half_l, 0));
+            axisPoints.push_back(cv::Point3f(-half_l, half_l, 0));
 
-    CV_Assert(
-            image.getMat().total() != 0 &&
-            (image.getMat().channels() == 1 || image.getMat().channels() == 3)
-    );
-    CV_Assert(l > 0);
-    float half_l = l / 2.0;
-    l /=2;
-    // project cube points
-    std::vector<cv::Point3f> axisPoints;
-    axisPoints.push_back(cv::Point3f(half_l, half_l, l));
-    axisPoints.push_back(cv::Point3f(half_l, -half_l, l));
-    axisPoints.push_back(cv::Point3f(-half_l, -half_l, l));
-    axisPoints.push_back(cv::Point3f(-half_l, half_l, l));
-    axisPoints.push_back(cv::Point3f(half_l, half_l, 0));
-    axisPoints.push_back(cv::Point3f(half_l, -half_l, 0));
-    axisPoints.push_back(cv::Point3f(-half_l, -half_l, 0));
-    axisPoints.push_back(cv::Point3f(-half_l, half_l, 0));
+            std::vector<cv::Point2f> imagePoints;
+            projectPoints(
+                    axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints
+            );
 
-    std::vector<cv::Point2f> imagePoints;
-    projectPoints(
-            axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints
-    );
+            // draw cube edges lines
+            cv::line(image, imagePoints[0], imagePoints[1], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[0], imagePoints[4], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[1], imagePoints[2], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[1], imagePoints[5], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[2], imagePoints[3], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[2], imagePoints[6], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[3], imagePoints[7], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[4], imagePoints[5], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[4], imagePoints[7], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[5], imagePoints[6], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[6], imagePoints[7], cv::Scalar(255, 0, 0), 3);
+            return;
+        }
+    }
 
-    // draw cube edges lines
-    cv::line(image, imagePoints[0], imagePoints[1], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[0], imagePoints[4], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[1], imagePoints[2], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[1], imagePoints[5], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[2], imagePoints[3], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[2], imagePoints[6], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[3], imagePoints[7], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[4], imagePoints[5], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[4], imagePoints[7], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[5], imagePoints[6], cv::Scalar(255, 0, 0), 3);
-    cv::line(image, imagePoints[6], imagePoints[7], cv::Scalar(255, 0, 0), 3);
 }
 
 
@@ -399,11 +419,12 @@ void CheckMouse(){
             //if pick up marker exists in this area & is selected and state == 0
             if (state == Pick) {
                 printf("Picking Up at %d %d \n", mouseX, mouseY);
-
+                PickID = LocateNearestMarker({(float)mouseX, (float)mouseY});
 
             }
             else {
                 printf("Placing at %d %d \n", mouseX, mouseY);
+                PlaceID = LocateNearestMarker({(float)mouseX, (float)mouseY});
 
             }
 
@@ -413,8 +434,23 @@ void CheckMouse(){
 
 
 
-void publishAllTheRos(const ros::TimerEvent&){
+void publishAllTheRos(){
 
+    std_msgs::Int64 msg;
+    //MarkerPosePublisher.publish();
+    msg.data = CloseSpeedPercent;
+    GripperSpeedPublisher.publish(msg);
+    msg.data = ClosePercent;
+    GripperClosePercentPublisher.publish(msg);
+    msg.data = PickID;
+    PickIDPublisher.publish(msg);
+    msg.data = PlaceID;
+    PlaceIDPublisher.publish(msg);
+    std_msgs::String str_msg;
+    str_msg.data  = state;
+    CommandPublisher.publish(str_msg);
+    str_msg.data = GripperState;
+    GripperStatePublisher.publish(str_msg);
 }
 
 void checkifMarkerExists(Marker marker){
@@ -437,9 +473,25 @@ void MarkerIsReliable(Marker marker){
             it->location[1] = marker.location[1];
             it->location[2] = marker.location[2];
             it->location[3] = marker.location[3];
+            it->centroid.x = (marker.location[0].x+marker.location[1].x+marker.location[2].x+marker.location[3].x)/4;
+            it->centroid.y = (marker.location[0].y+marker.location[1].y+marker.location[2].y+marker.location[3].y)/4;
             return;
         }
     }
     ConfirmedIDs.push_back(marker);
+}
+
+int LocateNearestMarker(cv::Point2f clickLocation) {
+    int nearestID;
+    cv::Point2f NearestMarerLocation = {0,0};
+    float disttoNearest = ((sqrt(pow((NearestMarerLocation.x-clickLocation.x),2))+(pow((NearestMarerLocation.y-clickLocation.y), 2))));
+    for (std::vector<Marker>::iterator it = ConfirmedIDs.begin(); it != ConfirmedIDs.end(); it++) {
+        float disttoCurrentMarer =(sqrt(pow((it->centroid.x-clickLocation.x), 2))+(pow((it->centroid.y-clickLocation.x), 2)));
+        if(disttoCurrentMarer<disttoNearest){
+            disttoNearest = disttoCurrentMarer;
+            nearestID = it->ID;
+        }
+    }
+    return nearestID;
 }
 
