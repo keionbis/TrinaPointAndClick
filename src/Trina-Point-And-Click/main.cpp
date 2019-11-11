@@ -16,7 +16,7 @@
 
 #define WINDOW_NAME	"Autonomous Grasping"
 #define CONFIRMATION 50
-#define MAXCLICKERROR 1000
+#define MAXCLICKERROR 10000
 
 
 //Marker Data Struct definition
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
 
-    in_video.open(0);//Camera index should be a passed parameter
+    in_video.open(2);//Camera index should be a passed parameter
 
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
@@ -498,12 +498,13 @@ int LocateNearestMarker(cv::Point2f clickLocation) {
     cv::Point2f NearestMarerLocation = {0,0};
     float disttoNearest = sqrt(pow((NearestMarerLocation.x-clickLocation.x),2)+(pow((NearestMarerLocation.y-clickLocation.y), 2)));
     for (std::vector<Marker>::iterator it = ConfirmedIDs.begin(); it != ConfirmedIDs.end(); it++) {
-        float disttoCurrentMarer =sqrt(pow((it->centroid.x-clickLocation.x), 2)+(pow((it->centroid.y-clickLocation.x), 2)));
-        if(disttoCurrentMarer<disttoNearest && disttoCurrentMarer < MAXCLICKERROR){
+        float disttoCurrentMarer =sqrt(pow((it->centroid.x-clickLocation.x), 2)+(pow((it->centroid.y-clickLocation.y), 2)));
+        if(disttoCurrentMarer<disttoNearest && disttoCurrentMarer<MAXCLICKERROR){
             disttoNearest = disttoCurrentMarer;
             nearestID = it->ID;
         }
     }
+    printf("%d\n",nearestID );
     return nearestID;
 }
 
