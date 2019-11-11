@@ -187,18 +187,18 @@ int main(int argc, char *argv[])
             }
         }
 //End Image Processing
-
-        cvui::image(frame, 375, 10, image_copy); //Display image into the interface
-
-        updateDialog(); //update the dialog box
-
-        UIButtons(); //display and check buttons
-
-        CheckMouse(); //monitor the mouse input
-
-        OffsetsWindow(); //display offsets window
-
-        publishAllTheRos();// publish all the ros topics
+        //Display image into the interface
+        cvui::image(frame, 375, 10, image_copy);
+        //update the dialog box
+        updateDialog();
+        //display and check buttons
+        UIButtons();
+        //monitor the mouse input
+        CheckMouse();
+        //display offsets window
+        OffsetsWindow();
+        // publish all the ros topics
+        publishAllTheRos();
 
 //        if(AuxCameraOpen){
 //            monitorAuxCam();
@@ -212,24 +212,16 @@ int main(int argc, char *argv[])
             if (cv::waitKey(20) == 27|| cv::getWindowProperty(WINDOW_NAME, cv::WND_PROP_ASPECT_RATIO) < 0) {
             break;
         }
-
     }
 
-
     in_video.release();
-
     return 0;
 }
-
-
-
 
 void drawCubeWireFrame(
         cv::InputOutputArray image, cv::InputArray cameraMatrix,
         cv::InputArray distCoeffs, cv::InputArray rvec, cv::InputArray tvec,
-        float l, int id
-)
-{
+        float l, int id){
     for(std::vector<Marker>::iterator it = ConfirmedIDs.begin() ; it != ConfirmedIDs.end(); ++it){
         if(it->ID == id) {
             CV_Assert(
@@ -239,6 +231,7 @@ void drawCubeWireFrame(
             CV_Assert(l > 0);
             float half_l = l / 2.0;
             l /= 2;
+
             // project cube points
             std::vector<cv::Point3f> axisPoints;
             axisPoints.push_back(cv::Point3f(half_l, half_l, l));
@@ -271,15 +264,13 @@ void drawCubeWireFrame(
             return;
         }
     }
-
 }
-
 
 void UIButtons(){
     if (cvui::button(frame, 30, 80,120,40 ,  "&Pick")) {
         state = Pick;
-
     }
+
     if (cvui::button(frame, 180, 80,120,40 , "&Place")) {
         state = Place;
     }
@@ -292,7 +283,22 @@ void UIButtons(){
     }
 
     if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
+        state = Pick;
+        currentRobotStatus = false;
 
+        //Publisher state variables
+        AuxCameraOpen = false;
+        ApplyOffsets = false;
+        LiveOffsets = false;
+        GripperOpen = false;
+
+        //offset and gripper variables
+        XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
+        RollOffset = 0, PitchOffset = 0, YawOffset = 0; //in degrees
+        GripperState = "Open Gripper";
+        //Gripper data
+        ClosePercent = 85;
+        CloseSpeedPercent = 20;
     }
     if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
         //tell robot to go to its neutral pose
