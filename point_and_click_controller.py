@@ -53,6 +53,7 @@ offsetx = 0.0
 offsety = 0.0
 offsetz = 0.0
 placing = False
+hand = None
 
 # Import Modules
 import os
@@ -164,9 +165,15 @@ class MarkerTaskGenerator(TaskGenerator):
         rospy.Subscriber('/PickID', Int8, callback_pick)
         rospy.Subscriber('/PlaceID', Int8, callback_place)
         rospy.Subscriber('/Commands', String, callback_command)
+        rospy.Subscriber('/robot/limb/left/endpoint_state', EndpointState, self.callback_pose)
         #rospy.Subscriber('/robot/limb/left/endpoint_state/pose', Pose, callback_pose)
         self.pub_l = rospy.Publisher('/left/UbirosGentle', Int8, queue_size = 1)
         self.pub_r = rospy.Publisher('/right/UbirosGentle', Int8, queue_size = 1)
+        
+    def callback_pose(self, data):
+        global hand
+        hand = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
+        
 
     def name(self):
         return "Marker_autonomous"
@@ -359,6 +366,9 @@ class MarkerTaskGenerator(TaskGenerator):
                         print(pos_msg)
                         print "picking up cup"
                         print(marker.id_number)
+                        dist = np.sqrt(np.square(hand[0]-xplace+offsetx+.015) + np.square(hand[1]-yplace+offsety+.015) + np.square(hand[2]-zplace+zcalcplace+offsetz))
+                        if dist < 0.005:
+                            got_to_waypoint = True
                         return pos_msg
                 else:
                     //pick up cup
@@ -383,6 +393,9 @@ class MarkerTaskGenerator(TaskGenerator):
                         print(pos_msg)
                         print "picking up cup"
                         print(marker.id_number)
+                        dist = np.sqrt(np.square(hand[0]-xpick+offsetx+.015) + np.square(hand[1]-ypick+offsety+.015) + np.square(hand[2]-zpick+zcalcpick+offsetz))
+                        if dist < 0.005:
+                            got_to_waypoint = True
                         return pos_msg
                             
         
