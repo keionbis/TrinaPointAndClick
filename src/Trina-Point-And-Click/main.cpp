@@ -480,10 +480,10 @@ void MarkerIsReliable(Marker marker){
 int LocateNearestMarker(cv::Point2f clickLocation) {
     int nearestID;
     cv::Point2f NearestMarerLocation = {0,0};
-    float disttoNearest = ((sqrt(pow((NearestMarerLocation.x-clickLocation.x),2))+(pow((NearestMarerLocation.y-clickLocation.y), 2))));
+    float disttoNearest = sqrt(pow((NearestMarerLocation.x-clickLocation.x),2)+(pow((NearestMarerLocation.y-clickLocation.y), 2)));
     for (std::vector<Marker>::iterator it = ConfirmedIDs.begin(); it != ConfirmedIDs.end(); it++) {
-        float disttoCurrentMarer =(sqrt(pow((it->centroid.x-clickLocation.x), 2))+(pow((it->centroid.y-clickLocation.x), 2)));
-        if(disttoCurrentMarer<disttoNearest){
+        float disttoCurrentMarer =sqrt(pow((it->centroid.x-clickLocation.x), 2)+(pow((it->centroid.y-clickLocation.x), 2)));
+        if(disttoCurrentMarer<disttoNearest && disttoCurrentMarer < MAXCLICKERROR){
             disttoNearest = disttoCurrentMarer;
             nearestID = it->ID;
         }
