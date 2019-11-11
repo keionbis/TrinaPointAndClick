@@ -13,11 +13,9 @@
 #include "geometry_msgs/TransformStamped.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/PoseStamped.h"
-
 #define WINDOW_NAME	"Autonomous Grasping"
 #define CONFIRMATION 50
 #define MAXCLICKERROR 10000
-
 
 //Marker Data Struct definition
 typedef struct Marker{
@@ -27,9 +25,6 @@ typedef struct Marker{
     cv::Point2f centroid; //xmin, xmax, ymin, ymax
 
 }Marker;
-
-
-
 
 // function declarations
 void UIButtons(void);
@@ -48,7 +43,8 @@ int LocateNearestMarker(cv::Point2f clickLocation);
 void initialisePublishers();
 void initialiseSubscribers();
 
-//global variables
+//GLOBAL VARIABLES
+
 //Marker vectors
 std::vector<Marker> Markers;
 std::vector<Marker> ConfirmedIDs;
@@ -62,6 +58,7 @@ std::string Placing = "Placing object, please monitor the robot.";
 std::string Picked = "Object picked up! Now click 'Place'.";
 std::string Placed = "Object placed! You can 'Pickup' another object now.";
 static std::string state = Pick;
+bool currentRobotStatus = false;
 
 //Publisher state variables
 bool AuxCameraOpen = false;
@@ -69,6 +66,7 @@ bool ApplyOffsets = false;
 bool LiveOffsets = false;
 bool GripperOpen = false;
 
+//offset and gripper variables
 int XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
 int RollOffset = 0, PitchOffset = 0, YawOffset = 0; //in degrees
 cv::String GripperState = "Open Gripper";
@@ -79,7 +77,7 @@ Marker PickLocation ;
 Marker PlaceLocation;
 int PickID, PlaceID;
 
-//Ros publishers & subscribers
+//ROS Publishers
 ros::Publisher MarkerPosePublisher;
 ros::Publisher GripperSpeedPublisher;
 ros::Publisher GripperClosePercentPublisher;
@@ -87,13 +85,12 @@ ros::Publisher PickIDPublisher;
 ros::Publisher PlaceIDPublisher;
 ros::Publisher CommandPublisher;
 ros::Publisher GripperStatePublisher;
+
+//ROS Subscribers
 ros::Subscriber currentStatusSubscriber;
 
-bool currentRobotStatus = false;
-
-
-
 void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
+    //read in data being published about whether the task is complete or on-going
     currentRobotStatus = Status->data;
     //checks if action was completed
     if (state == Picking){
@@ -106,9 +103,7 @@ void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
             state = Placed;
         }
     }
-
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -134,13 +129,13 @@ int main(int argc, char *argv[])
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
 
-    in_video.open(2);//Camera index should be a passed parameter
+    in_video.open(1);//Camera index should be a passed parameter
 
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
     cv::FileStorage fs("../../../src/Trina-Point-And-Click/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
-//    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
+    //cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
     fs["distortion_coefficients"] >> dist_coeffs;
@@ -150,23 +145,17 @@ int main(int argc, char *argv[])
 
 
     while (in_video.grab()&& ros::ok()){ //Loop while video exists
-//Start Image Processing
+        //Start Image Processing
         in_video.retrieve(image);
-
         image.copyTo(image_copy);
-
         frame = cv::Scalar(40, 40, 40); //set UI color
-
         std::vector<int> ids;
         std::vector<std::vector<cv::Point2f>> corners;
         cv::aruco::detectMarkers(image, dictionary, corners, ids);
 
-
-
         // if at least one marker detected
         if (ids.size() > 0)
         {
-
             cv::aruco::drawDetectedMarkers(image_copy, corners, ids);
             std::vector<cv::Vec3d> rvecs, tvecs;
             cv::aruco::estimatePoseSingleMarkers(
@@ -183,20 +172,18 @@ int main(int argc, char *argv[])
                         image_copy, camera_matrix, dist_coeffs, rvecs[i], tvecs[i],
                         actual_marker_l, ids[i]
                 );
+                geometry_msgs::PoseStamped PoseStamped;
+                PoseStamped.header.stamp = ros::Time::now();
+                PoseStamped.header.frame_id = std::to_string(ids[i]);
+                PoseStamped.pose.orientation.w = 0;
+                PoseStamped.pose.orientation.x = rvecs[i][0];
+                PoseStamped.pose.orientation.y = rvecs[i][1];
+                PoseStamped.pose.orientation.z = rvecs[i][2];
+                PoseStamped.pose.position.x = tvecs[i][0];
+                PoseStamped.pose.position.y = tvecs[i][1];
+                PoseStamped.pose.position.z = tvecs[i][2];
 
-//                Transform.header.stamp = ros::Time::now();
-//                Transform.header.frame_id = std::to_string(ids[i]);
-//                Transform.child_frame_id = "detected";
-//                Transform.transform.rotation.w = 0;
-//                Transform.transform.rotation.x = rvecs[i][0];
-//                Transform.transform.rotation.y = rvecs[i][1];
-//                Transform.transform.rotation.z = rvecs[i][2];
-//                Transform.transform.translation.x = tvecs[i][0];
-//                Transform.transform.translation.y = tvecs[i][1];
-//                Transform.transform.translation.z = tvecs[i][2];
-//
-//                MarkerTracker_Transform_pub.publish(Transform);
-
+                MarkerPosePublisher.publish(PoseStamped);
             }
         }
 //End Image Processing
@@ -449,7 +436,6 @@ void CheckMouse(){
 void publishAllTheRos(){
 
     std_msgs::Int64 msg;
-    //MarkerPosePublisher.publish();
     msg.data = CloseSpeedPercent;
     GripperSpeedPublisher.publish(msg);
     msg.data = ClosePercent;
