@@ -52,6 +52,7 @@ command = ""
 offsetx = 0.0
 offsety = 0.0
 offsetz = 0.0
+placing = False
 
 # Import Modules
 import os
@@ -253,27 +254,21 @@ class MarkerTaskGenerator(TaskGenerator):
             # print "No data"
             return None
 
-        state['workspace-markers'] = []
-        state['cup-markers'] = []
+        state['workspace-markers'] = {}
+        state['cup-markers'] = {}
         state['workspace-markers-vis'] = 0
         state['cup-markers-vis'] = 0
-        state['B'] = j.get_B()
-        state['A'] = j.get_A()
-        state['Y'] = j.get_Y()
-        state['X'] = j.get_X()
-        state['LB'] = j.get_LB()
-        state['RB'] = j.get_RB()
 
         for marker in resp:
             if not marker.id_number in hasMoved:
                     hasMoved[marker.id_number] = False
             if marker.workspace:
-                state['workspace-markers'].append(marker)
+                state['workspace-markers'][marker.id_number] = marker
                 if marker.visible:
                     state['workspace-markers-vis'] += 1
 
             else:
-                state['cup-markers'].append(marker)
+                state['cup-markers'][marker.id_number] = marker
                 if marker.visible:
                     state['cup-markers-vis'] += 1
 
@@ -296,17 +291,15 @@ class MarkerTaskGenerator(TaskGenerator):
         global xb, yb, zb
         global holdingObj
         global hasMoved
-        global current_cup
-        global current_placing
         global grabbing
         global grabAmount
-        global step
         global left_pose
-        global z_height
         global got_to_waypoint
-        
-        picking = False
-        placing = False
+        global command
+        global pickId, placeId
+        global offsetx, offsety, offsetz
+        global placing
+
         # get robot state data
         self.getRobotStatus()
         robot_state = {'jointAngles': self.ArmPosition, 'gripperStatus': self.gripperPosition,
@@ -329,6 +322,69 @@ class MarkerTaskGenerator(TaskGenerator):
                 grabAmount = grabAmount -0.3
         
         gripPercent = grabAmount
+        
+        xpick = state['cup-markers'][pickId].transform.translation.x
+        ypick = state['cup-markers'][pickId].transform.translation.y
+        zpick = state['cup-markers'][pickId].transform.translation.z
+        xplace = state['workspace-markers'][placeId].transform.translation.x
+        yplace = state['workspace-markers'][placeId].transform.translation.y
+        zplace = state['workspace-markers'][placeId].transform.translation.z
+        zcalcpick = 3.281511*(xpick**2)*(ypick**2) + 2.962022*(xpick**2)*ypick - 0.239726*(xpick**2) - 3.52277*xpick*(ypick**2) - 4.048555*xpick*ypick + 0.153533*xpick + 0.632763*(ypick**2) + 1.195625*ypick + 0.999591
+        zcalcplace = 3.281511*(xplace**2)*(yplace**2) + 2.962022*(xplace**2)*yplace - 0.239726*(xplace**2) - 3.52277*xplace*(yplace**2) - 4.048555*xplace*yplace + 0.153533*xplace + 0.632763*(yplace**2) + 1.195625*yplace + 0.999591
+        
+        if command == "abort":
+            TuckStatus[self.limb] = True
+        else:
+            TuckStatue[self.limb] = False
+            if command == "act":
+                if placing:
+                    //place
+                    if got_to_waypoint:
+                        grabbing = False
+                        if grabAmount >= 90:
+                            placing = False
+                            got_to_waypoint = False
+                    else:
+                        pos_msg = {"type": "CartesianPose",
+                                   "limb": "left",
+                                   "position": [xplace+offsetx+.015, yplace+offsety+.015, zplace+zcalcplace+offsetz],
+                                   "rotation": [0, 0, 1, -1, 0, 0, 0, -1, 0],
+                                   # "rotation":[1,0,0,0,1,0,0,0,1],
+                                   # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
+                                   # "rotation":[1,0,0,0,0,-1,0,1,0],   #90 deg rotation about x axis
+                                   # "rotation":[0,0,1,0,1,0,-1,0,0],   #90 deg rotation about y axis
+                                   "speed": 1,
+                                   "maxJointDeviation": 0.5,
+                                   "safe": 0}
+                        print(pos_msg)
+                        print "picking up cup"
+                        print(marker.id_number)
+                        return pos_msg
+                else:
+                    //pick up cup
+                    if got_to_waypoint:
+                        grabbing = True
+                        if grabAmount >= 90:
+                            placing = True
+                            got_to_waypoint = False
+                    else:
+                        marker = state['cup-markers'][pickId]
+                        pos_msg = {"type": "CartesianPose",
+                                   "limb": "left",
+                                   "position": [xpick+offsetx+.015, ypick+offsety+.015, zpick+zcalcpick+offsetz],
+                                   "rotation": [0, 0, 1, -1, 0, 0, 0, -1, 0],
+                                   # "rotation":[1,0,0,0,1,0,0,0,1],
+                                   # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
+                                   # "rotation":[1,0,0,0,0,-1,0,1,0],   #90 deg rotation about x axis
+                                   # "rotation":[0,0,1,0,1,0,-1,0,0],   #90 deg rotation about y axis
+                                   "speed": 1,
+                                   "maxJointDeviation": 0.5,
+                                   "safe": 0}
+                        print(pos_msg)
+                        print "picking up cup"
+                        print(marker.id_number)
+                        return pos_msg
+                            
         
         if TuckStatus[self.limb]:
             Jointmsg = {}
