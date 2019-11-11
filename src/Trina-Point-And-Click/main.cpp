@@ -42,7 +42,14 @@ void initialiseSubscribers();
 
 //global variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
-static int state = 0;
+std::string Pick = "Please select marker to pick up.";
+std::string Place = "Please select marker to place.";
+std::string Wrong = "No marker near selection. Try again!";
+std::string Picking = "Picking up object...";
+std::string Placing = "Placing object...";
+std::string Picked = "Object picked up!";
+std::string Placed = "Object placed!";
+static std::string state = Pick;
 bool AuxCameraOpen = false;
 bool ApplyOffsets = false;
 bool LiveOffsets = false;
@@ -189,7 +196,7 @@ int main(int argc, char *argv[])
         cv::imshow(WINDOW_NAME, frame);
 
         // Check if ESC key was pressed
-        if (cv::waitKey(20) == 27|| cv::getWindowProperty(WINDOW_NAME, cv::WND_PROP_ASPECT_RATIO) < 0) {
+            if (cv::waitKey(20) == 27|| cv::getWindowProperty(WINDOW_NAME, cv::WND_PROP_ASPECT_RATIO) < 0) {
             break;
         }
 
@@ -252,10 +259,10 @@ void drawCubeWireFrame(
 
 void UIButtons(){
     if (cvui::button(frame, 30, 80,120,40 ,  "&Pick")) {
-        state = 0;
+        state = Place;
     }
     if (cvui::button(frame, 180, 80,120,40 , "&Place")) {
-        state = 1;
+        state = Pick;
     }
 
     if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
@@ -379,12 +386,8 @@ void OffsetsWindow(){
 }
 
 void updateDialog(){
-    if(state == 0) {
-        cvui::text(frame, 20, 30, "Please select marker to pick up ", 0.5, 0xffffff);
-    }
-    else if(state == 1){
-        cvui::text(frame, 20, 30, "Please select placement marker ", 0.5, 0xffffff);
-    }
+    cvui::text(frame, 20, 30, state, 0.5, 0xffffff);
+
 }
 
 void CheckMouse(){
@@ -394,7 +397,7 @@ void CheckMouse(){
             int mouseX = cvui::mouse().x-375;
             int mouseY = cvui::mouse().y-10;
             //if pick up marker exists in this area & is selected and state == 0
-            if (state == 0) {
+            if (state == Pick) {
                 printf("Picking Up at %d %d \n", mouseX, mouseY);
 
 
