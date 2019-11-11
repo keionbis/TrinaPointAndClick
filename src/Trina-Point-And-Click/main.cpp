@@ -56,15 +56,14 @@ std::vector<Marker> ConfirmedIDs;
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
 std::string Pick = "Please select marker to pick up.";
 std::string Place = "Please select marker to place.";
-std::string Wrong = "No marker near selection. Try again!";
-std::string Picking = "Picking up object...";
-std::string Placing = "Placing object...";
-std::string Picked = "Object picked up!";
-std::string Placed = "Object placed!";
+std::string Wrong = "No marker near selection. Try clicking a different spot!";
+std::string Picking = "Picking up object, please monitor the robot.";
+std::string Placing = "Placing object, please monitor the robot.";
+std::string Picked = "Object picked up! Now click 'Place'.";
+std::string Placed = "Object placed! You can 'Pickup' another object now.";
 static std::string state = Pick;
 
 //Publisher state variables
-static int state = 0;
 bool AuxCameraOpen = false;
 bool ApplyOffsets = false;
 bool LiveOffsets = false;
@@ -96,6 +95,18 @@ bool currentRobotStatus = false;
 
 void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
     currentRobotStatus = Status->data;
+    //checks if action was completed
+    if (state == Picking){
+        if (currentRobotStatus){
+            state = Picked;
+        }
+    }
+    else if (state == Placing){
+        if (currentRobotStatus){
+            state = Placed;
+        }
+    }
+
 }
 
 
@@ -279,10 +290,11 @@ void drawCubeWireFrame(
 
 void UIButtons(){
     if (cvui::button(frame, 30, 80,120,40 ,  "&Pick")) {
-        state = Place;
+        state = Pick;
+
     }
     if (cvui::button(frame, 180, 80,120,40 , "&Place")) {
-        state = Pick;
+        state = Place;
     }
 
     if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
@@ -420,12 +432,12 @@ void CheckMouse(){
             if (state == Pick) {
                 printf("Picking Up at %d %d \n", mouseX, mouseY);
                 PickID = LocateNearestMarker({(float)mouseX, (float)mouseY});
-
+                state = Picking;
             }
             else {
                 printf("Placing at %d %d \n", mouseX, mouseY);
                 PlaceID = LocateNearestMarker({(float)mouseX, (float)mouseY});
-
+                state = Placing;
             }
 
         }
