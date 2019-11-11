@@ -41,14 +41,17 @@ pickLimb = "Out"
 holdingObj = False
 hasMoved = {}
 marker_state = None
-current_cup = 9999
-current_placing = 9999
+pickId = 9999
+placeId = 9999
 grabbing = False
 grabAmount = 0
-step = 0
 left_pose = None
 z_height = 999
 got_to_waypoint = False
+command = ""
+offsetx = 0.0
+offsety = 0.0
+offsetz = 0.0
 
 # Import Modules
 import os
@@ -550,12 +553,22 @@ def callback_state(data):
     marker_state = data.markers
     
 def callback_pick(data):
+    global pickId
+    pickId = data.data
     
 def callback_place(data):
+    global placeId
+    placeId = data.data
     
 def callback_command(data):
+    global command
+    command = data.data
     
 def callback offsets(data):
+    global offsetx, offsety, offsetz
+    offsetx = data.position.x
+    offsety = data.position.y
+    offsetz = data.position.z
     
 '''
 #warning: we have problems where if you subscribe it will stop publishing
