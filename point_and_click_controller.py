@@ -80,7 +80,7 @@ from klampt.vis import gldraw
 from klampt.vis.glinterface import GLPluginInterface as GLPluginBase
 from klampt.vis.glcommon import GLWidgetPlugin
 from klampt.math import so3, se3, vectorops
-from std_msgs.msg import String, Int16, Float32MultiArray, Int8
+from std_msgs.msg import String, Int16, Float32MultiArray, Int8, Int64
 from geometry_msgs.msg import Pose
 # from baxter_pykdl import baxter_kinematics
 import numpy as np
@@ -162,13 +162,17 @@ class MarkerTaskGenerator(TaskGenerator):
         rospy.Subscriber('Detect', String, callback_pos)
         rospy.Subscriber('/MarkerArray', MarkerArray, callback_state)
         rospy.Subscriber('/Offsets', Pose, callback_offsets)
-        rospy.Subscriber('/PickID', Int8, callback_pick)
-        rospy.Subscriber('/PlaceID', Int8, callback_place)
-        rospy.Subscriber('/Commands', String, callback_command)
+        rospy.Subscriber('/PickID', Int64, callback_pick)
+        rospy.Subscriber('/PlaceID', Int64, callback_place)
+        rospy.Subscriber('/Command', String, callback_command)
+        rospy.Subscriber('/GripperSpeed', Int64, callback_speed)
+        rospy.Subscriber('/GripperClosePercent', Int64, callback_percent)
+        rospy.Subscriber('/GripperState', String, callback_gripper)
         rospy.Subscriber('/robot/limb/left/endpoint_state', EndpointState, self.callback_pose)
         #rospy.Subscriber('/robot/limb/left/endpoint_state/pose', Pose, callback_pose)
         self.pub_l = rospy.Publisher('/left/UbirosGentle', Int8, queue_size = 1)
         self.pub_r = rospy.Publisher('/right/UbirosGentle', Int8, queue_size = 1)
+        self.pub_state = rospy.Publisher('/CurrentStatus', String, queue_size = 1)
         
     def callback_pose(self, data):
         global hand
@@ -633,11 +637,20 @@ def callback_command(data):
     global command
     command = data.data
     
-def callback offsets(data):
+def callback_offsets(data):
     global offsetx, offsety, offsetz
     offsetx = data.position.x
     offsety = data.position.y
     offsetz = data.position.z
+    
+def callback_speed(data):
+    #hello
+    
+def callback_percent(data):
+    #percent
+    
+def callback_gripper(data):
+    #gripper state i guess
     
 '''
 #warning: we have problems where if you subscribe it will stop publishing
