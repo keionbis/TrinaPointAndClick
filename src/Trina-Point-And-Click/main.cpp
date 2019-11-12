@@ -42,6 +42,7 @@ void MarkerIsReliable(Marker marker);
 int LocateNearestMarker(cv::Point2f clickLocation);
 void initialisePublishers();
 void initialiseSubscribers();
+void checkReady();
 
 //GLOBAL VARIABLES
 
@@ -50,13 +51,14 @@ std::vector<Marker> Markers;
 std::vector<Marker> ConfirmedIDs;
 //CV Variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
-std::string Pick = "Please select marker to pick up.";
-std::string Place = "Please select marker to place.";
+std::string Pick = "Click 'Pick'.";
+std::string Place = "Click 'Place'.";
 std::string Wrong = "No marker near selection. Try clicking a different spot!";
-std::string Picking = "Picking up object, please monitor the robot.";
-std::string Placing = "Placing object, please monitor the robot.";
-std::string Picked = "Object picked up! Now click 'Place'.";
-std::string Placed = "Object placed! You can 'Pickup' another object now.";
+std::string Picking = "Click a marker to pick up.";
+std::string Placing = "Click a marker to place.";
+std::string Doing = "Robot in action now";
+std::string Done = "I did it! Now click 'Pick'.";
+std::string Ready = "Click 'Act' to make the robot do stuff.";
 static std::string state = Pick;
 bool currentRobotStatus = false;
 
@@ -73,9 +75,8 @@ cv::String GripperState = "Open Gripper";
 int ClosePercent = 85, CloseSpeedPercent = 20; //Gripper data
 
 Marker tmpData;
-Marker PickLocation ;
-Marker PlaceLocation;
-int PickID, PlaceID;
+int PickID = 2512;
+int PlaceID = 7320;
 
 //ROS Publishers
 ros::Publisher MarkerPosePublisher;
@@ -93,14 +94,11 @@ void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
     //read in data being published about whether the task is complete or on-going
     currentRobotStatus = Status->data;
     //checks if action was completed
-    if (state == Picking){
+    if (state == Doing){
         if (currentRobotStatus){
-            state = Picked;
-        }
-    }
-    else if (state == Placing){
-        if (currentRobotStatus){
-            state = Placed;
+            state = Done;
+            PickID = 2512;
+            PlaceID = 7320;
         }
     }
 }
@@ -270,22 +268,28 @@ void drawCubeWireFrame(
 
 void UIButtons(){
     if (cvui::button(frame, 30, 80,120,40 ,  "&Pick")) {
-        state = Pick;
+        state = Picking;
     }
 
     if (cvui::button(frame, 180, 80,120,40 , "&Place")) {
-        state = Place;
+        state = Placing;
     }
 
     if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
         //stop publishers running
+        if (state == Ready){
+            //do some stuff
+        }
     }
     if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
         //stop publishers running
+        state = Pick;
     }
 
     if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
         state = Pick;
+        PickID = 2512;
+        PlaceID = 7320;
         currentRobotStatus = false;
 
         //Publisher state variables
@@ -424,21 +428,33 @@ void CheckMouse(){
             int mouseX = cvui::mouse().x-375;
             int mouseY = cvui::mouse().y-10;
             //if pick up marker exists in this area & is selected and state == 0
-            if (state == Pick) {
+            if (state == Picking) {
                 printf("Picking Up at %d %d \n", mouseX, mouseY);
                 PickID = LocateNearestMarker({(float)mouseX, (float)mouseY});
-                state = Picking;
+                state = Place;
+                checkReady();
             }
-            else {
+            else if (state == Placing) {
                 printf("Placing at %d %d \n", mouseX, mouseY);
                 PlaceID = LocateNearestMarker({(float)mouseX, (float)mouseY});
-                state = Placing;
+                state = Pick;
+                checkReady();
+
             }
 
         }
     }
 }
 
+void checkReady(){
+    if (PickID == 2512 | PlaceID == 7320){
+        return;
+    }
+    else{
+        state = Ready;
+        return;
+    }
+}
 
 
 void publishAllTheRos(){
@@ -499,6 +515,10 @@ int LocateNearestMarker(cv::Point2f clickLocation) {
             if (disttoCurrentMarer < disttoNearest && disttoCurrentMarer < MAXCLICKERROR) {
                 disttoNearest = disttoCurrentMarer;
                 nearestID = it->ID;
+            }
+            else {
+                //clicked too far away
+                state = Wrong;
             }
         }
     }
