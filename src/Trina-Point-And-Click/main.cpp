@@ -252,11 +252,17 @@ void drawCubeWireFrame(
             );
             cv::Scalar blue (255, 0, 0);
             cv::Scalar yellow (0, 255, 255);
+            cv::Scalar teal (255, 2250,0 );
+
             cv::Scalar color = blue;
 
 
-            if(id == PickID || id == PlaceID){
+            if(id == PickID ){
                 color = yellow;
+            }
+            else if(id == PlaceID){
+                color = teal;
+
             }
             // draw cube edges lines
             cv::line(image, imagePoints[0], imagePoints[1], color, 3);
@@ -446,14 +452,27 @@ void CheckMouse(){
             //if pick up marker exists in this area & is selected and state == 0
             if (state == Picking) {
                 printf("Picking Up at %d %d \n", mouseX, mouseY);
-                PickID = LocateNearestMarker({(float)mouseX, (float)mouseY});
-                state = Place;
+                int ID = LocateNearestMarker({(float) mouseX, (float) mouseY});
+                if (ID == PlaceID) {
+                    state = Wrong;
+                } else {
+                    PickID = ID;
+                    state = Picking;
+                }
                 checkReady();
-            }
-            else if (state == Placing) {
+
+
+            } else if (state == Placing) {
+
                 printf("Placing at %d %d \n", mouseX, mouseY);
-                PlaceID = LocateNearestMarker({(float)mouseX, (float)mouseY});
-                state = Pick;
+                int ID = LocateNearestMarker({(float) mouseX, (float) mouseY});
+                if (ID == PickID) {
+                    state = Wrong;
+                } else {
+                    PlaceID = ID;
+                    state = Placing;
+
+                }
                 checkReady();
 
             }
