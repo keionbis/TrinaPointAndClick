@@ -13,6 +13,7 @@
 #include "geometry_msgs/TransformStamped.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/PoseStamped.h"
+#include "geometry_msgs/Pose.h"
 #define WINDOW_NAME	"Autonomous Grasping"
 #define CONFIRMATION 50
 #define MAXCLICKERROR 10000
@@ -58,6 +59,7 @@ std::string Placing = "Placing object, please monitor the robot.";
 std::string Picked = "Object picked up! Now click 'Place'.";
 std::string Placed = "Object placed! You can 'Pickup' another object now.";
 static std::string state = Pick;
+std_msgs::String command;
 bool currentRobotStatus = false;
 
 //Publisher state variables
@@ -85,7 +87,7 @@ ros::Publisher PickIDPublisher;
 ros::Publisher PlaceIDPublisher;
 ros::Publisher CommandPublisher;
 ros::Publisher GripperStatePublisher;
-
+ros::Publisher OffsetPublisher;
 //ROS Subscribers
 ros::Subscriber currentStatusSubscriber;
 
@@ -115,7 +117,7 @@ int main(int argc, char *argv[])
 
     ros::init(argc, argv, "listener");
     ros::NodeHandle n;
-
+    command.data= "wait";
      MarkerPosePublisher = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
      GripperSpeedPublisher = n.advertise<std_msgs::Int64>("GripperSpeed", 1000);
      GripperClosePercentPublisher = n.advertise<std_msgs::Int64>("GripperClosePercent", 1000);
@@ -123,6 +125,7 @@ int main(int argc, char *argv[])
      PickIDPublisher = n.advertise<std_msgs::Int64>("PickID", 1000);
      PlaceIDPublisher = n.advertise<std_msgs::Int64>("PlaceID", 1000);
      CommandPublisher = n.advertise<std_msgs::String>("Command", 1000);
+    OffsetPublisher = n.advertise<geometry_msgs::Pose>("Offsets", 1000);
 
     currentStatusSubscriber = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
 
@@ -278,10 +281,11 @@ void UIButtons(){
     }
 
     if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
-        //stop publishers running
+        command.data = "act";
     }
     if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
-        //stop publishers running
+        command.data = "cancel";
+
     }
 
     if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
@@ -303,6 +307,8 @@ void UIButtons(){
         CloseSpeedPercent = 20;
     }
     if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
+        command.data = "home";
+
         //tell robot to go to its neutral pose
     }
     if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
@@ -453,8 +459,7 @@ void publishAllTheRos(){
     msg.data = PlaceID;
     PlaceIDPublisher.publish(msg);
     std_msgs::String str_msg;
-    str_msg.data  = state;
-    CommandPublisher.publish(str_msg);
+    CommandPublisher.publish(command);
     str_msg.data = GripperState;
     GripperStatePublisher.publish(str_msg);
 }
@@ -489,7 +494,7 @@ void MarkerIsReliable(Marker marker){
 }
 
 int LocateNearestMarker(cv::Point2f clickLocation) {
-    int nearestID;
+    int nearestID = 65535;
     cv::Point2f NearestMarerLocation = {0,0};
     float disttoNearest = sqrt(pow((NearestMarerLocation.x-clickLocation.x),2)+(pow((NearestMarerLocation.y-clickLocation.y), 2)));
     for (std::vector<Marker>::iterator it = ConfirmedIDs.begin(); it != ConfirmedIDs.end(); it++) {
