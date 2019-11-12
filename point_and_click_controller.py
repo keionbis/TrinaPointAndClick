@@ -343,7 +343,7 @@ class MarkerTaskGenerator(TaskGenerator):
         zcalcpick = 3.281511*(xpick**2)*(ypick**2) + 2.962022*(xpick**2)*ypick - 0.239726*(xpick**2) - 3.52277*xpick*(ypick**2) - 4.048555*xpick*ypick + 0.153533*xpick + 0.632763*(ypick**2) + 1.195625*ypick + 0.999591
         zcalcplace = 3.281511*(xplace**2)*(yplace**2) + 2.962022*(xplace**2)*yplace - 0.239726*(xplace**2) - 3.52277*xplace*(yplace**2) - 4.048555*xplace*yplace + 0.153533*xplace + 0.632763*(yplace**2) + 1.195625*yplace + 0.999591
         
-        if command == "abort":
+        if command == "home":
             TuckStatus[self.limb] = True
         else:
             TuckStatue[self.limb] = False
