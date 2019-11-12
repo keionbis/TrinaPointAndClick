@@ -294,16 +294,14 @@ void UIButtons(){
     if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
         //stop publishers running
         if (state == Ready){
-            //do some stuff
+            state = Doing;
+            command.data = "act";
         }
-        command.data = "act";
-
     }
     if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
         //stop publishers running
         state = Pick;
         command.data = "cancel";
-
     }
 
     if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
@@ -327,9 +325,8 @@ void UIButtons(){
         CloseSpeedPercent = 20;
     }
     if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
-        command.data = "home";
-
         //tell robot to go to its neutral pose
+        command.data = "home";
     }
     if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
         //launch secondary window and display camera images there
