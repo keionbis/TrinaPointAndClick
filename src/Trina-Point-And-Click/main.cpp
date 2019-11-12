@@ -13,6 +13,7 @@
 #include "geometry_msgs/TransformStamped.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/PoseStamped.h"
+#include "geometry_msgs/Pose.h"
 #define WINDOW_NAME	"Autonomous Grasping"
 #define CONFIRMATION 50
 #define MAXCLICKERROR 10000
@@ -60,6 +61,7 @@ std::string Doing = "Robot in action now";
 std::string Done = "I did it! Now click 'Pick'.";
 std::string Ready = "Click 'Act' to make the robot do stuff.";
 static std::string state = Pick;
+std_msgs::String command;
 bool currentRobotStatus = false;
 
 //Publisher state variables
@@ -86,7 +88,7 @@ ros::Publisher PickIDPublisher;
 ros::Publisher PlaceIDPublisher;
 ros::Publisher CommandPublisher;
 ros::Publisher GripperStatePublisher;
-
+ros::Publisher OffsetPublisher;
 //ROS Subscribers
 ros::Subscriber currentStatusSubscriber;
 
@@ -113,7 +115,7 @@ int main(int argc, char *argv[])
 
     ros::init(argc, argv, "listener");
     ros::NodeHandle n;
-
+    command.data= "wait";
      MarkerPosePublisher = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
      GripperSpeedPublisher = n.advertise<std_msgs::Int64>("GripperSpeed", 1000);
      GripperClosePercentPublisher = n.advertise<std_msgs::Int64>("GripperClosePercent", 1000);
@@ -121,6 +123,7 @@ int main(int argc, char *argv[])
      PickIDPublisher = n.advertise<std_msgs::Int64>("PickID", 1000);
      PlaceIDPublisher = n.advertise<std_msgs::Int64>("PlaceID", 1000);
      CommandPublisher = n.advertise<std_msgs::String>("Command", 1000);
+    OffsetPublisher = n.advertise<geometry_msgs::Pose>("Offsets", 1000);
 
     currentStatusSubscriber = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
 
@@ -247,20 +250,27 @@ void drawCubeWireFrame(
             projectPoints(
                     axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints
             );
+            cv::Scalar blue (255, 0, 0);
+            cv::Scalar yellow (0, 255, 255);
+            cv::Scalar color = blue;
 
+
+            if(id == PickID || id == PlaceID){
+                color = yellow;
+            }
             // draw cube edges lines
-            cv::line(image, imagePoints[0], imagePoints[1], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[0], imagePoints[4], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[1], imagePoints[2], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[1], imagePoints[5], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[2], imagePoints[3], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[2], imagePoints[6], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[3], imagePoints[7], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[4], imagePoints[5], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[4], imagePoints[7], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[5], imagePoints[6], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[6], imagePoints[7], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[0], imagePoints[1], color, 3);
+            cv::line(image, imagePoints[0], imagePoints[3], color, 3);
+            cv::line(image, imagePoints[0], imagePoints[4], color, 3);
+            cv::line(image, imagePoints[1], imagePoints[2], color, 3);
+            cv::line(image, imagePoints[1], imagePoints[5], color, 3);
+            cv::line(image, imagePoints[2], imagePoints[3], color, 3);
+            cv::line(image, imagePoints[2], imagePoints[6], color, 3);
+            cv::line(image, imagePoints[3], imagePoints[7], color, 3);
+            cv::line(image, imagePoints[4], imagePoints[5], color, 3);
+            cv::line(image, imagePoints[4], imagePoints[7], color, 3);
+            cv::line(image, imagePoints[5], imagePoints[6], color, 3);
+            cv::line(image, imagePoints[6], imagePoints[7], color, 3);
             return;
         }
     }
@@ -280,10 +290,14 @@ void UIButtons(){
         if (state == Ready){
             //do some stuff
         }
+        command.data = "act";
+
     }
     if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
         //stop publishers running
         state = Pick;
+        command.data = "cancel";
+
     }
 
     if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
@@ -307,6 +321,8 @@ void UIButtons(){
         CloseSpeedPercent = 20;
     }
     if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
+        command.data = "home";
+
         //tell robot to go to its neutral pose
     }
     if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
@@ -469,8 +485,7 @@ void publishAllTheRos(){
     msg.data = PlaceID;
     PlaceIDPublisher.publish(msg);
     std_msgs::String str_msg;
-    str_msg.data  = state;
-    CommandPublisher.publish(str_msg);
+    CommandPublisher.publish(command);
     str_msg.data = GripperState;
     GripperStatePublisher.publish(str_msg);
 }
@@ -505,7 +520,7 @@ void MarkerIsReliable(Marker marker){
 }
 
 int LocateNearestMarker(cv::Point2f clickLocation) {
-    int nearestID;
+    int nearestID = 65535;
     cv::Point2f NearestMarerLocation = {0,0};
     float disttoNearest = sqrt(pow((NearestMarerLocation.x-clickLocation.x),2)+(pow((NearestMarerLocation.y-clickLocation.y), 2)));
     for (std::vector<Marker>::iterator it = ConfirmedIDs.begin(); it != ConfirmedIDs.end(); it++) {
