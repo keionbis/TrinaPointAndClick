@@ -80,12 +80,12 @@ from klampt.vis import gldraw
 from klampt.vis.glinterface import GLPluginInterface as GLPluginBase
 from klampt.vis.glcommon import GLWidgetPlugin
 from klampt.math import so3, se3, vectorops
-from std_msgs.msg import String, Int16, Float32MultiArray, Int8, Int64
+from std_msgs.msg import String, Int16, Float32MultiArray, Int8, Int64, Bool
 from geometry_msgs.msg import Pose
 # from baxter_pykdl import baxter_kinematics
 import numpy as np
 from UI.utils.gripper_controller import *
-from MultipleMarkerTracker.msg import Marker, MarkerArray
+from Trina-Point-And-Click.msg import Marker, MarkerArray
 
 # imaging stuff
 try:
@@ -172,7 +172,7 @@ class MarkerTaskGenerator(TaskGenerator):
         #rospy.Subscriber('/robot/limb/left/endpoint_state/pose', Pose, callback_pose)
         self.pub_l = rospy.Publisher('/left/UbirosGentle', Int8, queue_size = 1)
         self.pub_r = rospy.Publisher('/right/UbirosGentle', Int8, queue_size = 1)
-        self.pub_state = rospy.Publisher('/CurrentStatus', String, queue_size = 1)
+        self.pub_state = rospy.Publisher('/CurrentStatus', Bool, queue_size = 1)
         
     def callback_pose(self, data):
         global hand
@@ -345,6 +345,7 @@ class MarkerTaskGenerator(TaskGenerator):
         
         if command == "home":
             TuckStatus[self.limb] = True
+            self.pub_state.publish(False)
         else:
             TuckStatue[self.limb] = False
             if command == "act":
@@ -352,11 +353,12 @@ class MarkerTaskGenerator(TaskGenerator):
                     //place
                     if got_to_waypoint:
                         grabbing = False
-                        self.pub_state.publish("finished")
+                        self.pub_state.publish(True)
                         if grabAmount >= 90:
                             placing = False
                             got_to_waypoint = False
                     else:
+                        self.pub_state.publish(False)
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
                                    "position": [xplace+offsetx+.015, yplace+offsety+.015, zplace+zcalcplace+offsetz],
@@ -378,11 +380,13 @@ class MarkerTaskGenerator(TaskGenerator):
                 else:
                     //pick up cup
                     if got_to_waypoint:
+                        self.pub_state.publish(False)
                         grabbing = True
                         if grabAmount >= 90:
                             placing = True
                             got_to_waypoint = False
                     else:
+                        self.pub_state.publish(False)
                         marker = state['cup-markers'][pickId]
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
