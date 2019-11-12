@@ -23,7 +23,7 @@ typedef struct Marker{
     int timesSeen;
     cv::Point2f location[4]; //xmin, xmax, ymin, ymax
     cv::Point2f centroid; //xmin, xmax, ymin, ymax
-
+    bool isVisible;
 }Marker;
 
 // function declarations
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
 
-    in_video.open(1);//Camera index should be a passed parameter
+    in_video.open(0);//Camera index should be a passed parameter
 
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
@@ -162,11 +162,13 @@ int main(int argc, char *argv[])
                     corners, actual_marker_l, camera_matrix, dist_coeffs,
                     rvecs, tvecs
             );
-
+            for(int x = 0; x<ConfirmedIDs.size();x++){
+                ConfirmedIDs[x].isVisible = false;
+            }
             // draw axis for each marker
             for (int i = 0; i < ids.size(); i++)
             {
-               tmpData = {ids[i], 0, {corners[i][0],corners[i][1], corners[i][2], corners[i][3]}, {0,0}};
+               tmpData = {ids[i], 0, {corners[i][0],corners[i][1], corners[i][2], corners[i][3]}, {0,0}, true};
                 checkifMarkerExists(tmpData);
                 drawCubeWireFrame(
                         image_copy, camera_matrix, dist_coeffs, rvecs[i], tvecs[i],
@@ -479,6 +481,7 @@ void MarkerIsReliable(Marker marker){
             it->location[3] = marker.location[3];
             it->centroid.x = (marker.location[0].x+marker.location[1].x+marker.location[2].x+marker.location[3].x)/4;
             it->centroid.y = (marker.location[0].y+marker.location[1].y+marker.location[2].y+marker.location[3].y)/4;
+            it->isVisible = true;
             return;
         }
     }
@@ -490,10 +493,13 @@ int LocateNearestMarker(cv::Point2f clickLocation) {
     cv::Point2f NearestMarerLocation = {0,0};
     float disttoNearest = sqrt(pow((NearestMarerLocation.x-clickLocation.x),2)+(pow((NearestMarerLocation.y-clickLocation.y), 2)));
     for (std::vector<Marker>::iterator it = ConfirmedIDs.begin(); it != ConfirmedIDs.end(); it++) {
-        float disttoCurrentMarer =sqrt(pow((it->centroid.x-clickLocation.x), 2)+(pow((it->centroid.y-clickLocation.y), 2)));
-        if(disttoCurrentMarer<disttoNearest && disttoCurrentMarer<MAXCLICKERROR){
-            disttoNearest = disttoCurrentMarer;
-            nearestID = it->ID;
+        if (it->isVisible) {
+            float disttoCurrentMarer = sqrt(
+                    pow((it->centroid.x - clickLocation.x), 2) + (pow((it->centroid.y - clickLocation.y), 2)));
+            if (disttoCurrentMarer < disttoNearest && disttoCurrentMarer < MAXCLICKERROR) {
+                disttoNearest = disttoCurrentMarer;
+                nearestID = it->ID;
+            }
         }
     }
     printf("%d\n",nearestID );
