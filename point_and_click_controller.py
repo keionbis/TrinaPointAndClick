@@ -85,7 +85,7 @@ from geometry_msgs.msg import Pose
 # from baxter_pykdl import baxter_kinematics
 import numpy as np
 from UI.utils.gripper_controller import *
-from MultipleMarkerTracker.msg import Marker, MarkerArray
+from Trina-Point-And-Click.msg import Marker, MarkerArray
 
 # imaging stuff
 try:
