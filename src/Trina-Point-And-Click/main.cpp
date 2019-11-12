@@ -62,6 +62,8 @@ std::string Done = "I did it! Now click 'Pick'.";
 std::string Ready = "Click 'Act' to make the robot do stuff.";
 static std::string state = Pick;
 std_msgs::String command;
+geometry_msgs::Pose Offsets;
+geometry_msgs::PoseStamped PoseStamped;
 bool currentRobotStatus = false;
 
 //Publisher state variables
@@ -175,16 +177,28 @@ int main(int argc, char *argv[])
                         image_copy, camera_matrix, dist_coeffs, rvecs[i], tvecs[i],
                         actual_marker_l, ids[i]
                 );
-                geometry_msgs::PoseStamped PoseStamped;
-                PoseStamped.header.stamp = ros::Time::now();
-                PoseStamped.header.frame_id = std::to_string(ids[i]);
-                PoseStamped.pose.orientation.w = 0;
-                PoseStamped.pose.orientation.x = rvecs[i][0];
-                PoseStamped.pose.orientation.y = rvecs[i][1];
-                PoseStamped.pose.orientation.z = rvecs[i][2];
-                PoseStamped.pose.position.x = tvecs[i][0];
-                PoseStamped.pose.position.y = tvecs[i][1];
-                PoseStamped.pose.position.z = tvecs[i][2];
+                if(ApplyOffsets && !LiveOffsets) {
+                    PoseStamped.header.stamp = ros::Time::now();
+                    PoseStamped.header.frame_id = std::to_string(ids[i]);
+                    PoseStamped.pose.orientation.w = 0;
+                    PoseStamped.pose.orientation.x = rvecs[i][0]+(XOffset/1000);
+                    PoseStamped.pose.orientation.y = rvecs[i][1]+(YOffset/1000);
+                    PoseStamped.pose.orientation.z = rvecs[i][2]+(ZOffset/1000);
+                    PoseStamped.pose.position.x = tvecs[i][0]+RollOffset;
+                    PoseStamped.pose.position.y = tvecs[i][1]+PitchOffset;
+                    PoseStamped.pose.position.z = tvecs[i][2]+YawOffset;
+                }
+                else{
+                    PoseStamped.header.stamp = ros::Time::now();
+                    PoseStamped.header.frame_id = std::to_string(ids[i]);
+                    PoseStamped.pose.orientation.w = 0;
+                    PoseStamped.pose.orientation.x = rvecs[i][0];
+                    PoseStamped.pose.orientation.y = rvecs[i][1];
+                    PoseStamped.pose.orientation.z = rvecs[i][2];
+                    PoseStamped.pose.position.x = tvecs[i][0];
+                    PoseStamped.pose.position.y = tvecs[i][1];
+                    PoseStamped.pose.position.z = tvecs[i][2];
+                }
 
                 MarkerPosePublisher.publish(PoseStamped);
             }
@@ -376,7 +390,23 @@ void OffsetsWindow(){
     //orientation
     cvui::beginColumn(frame, 200, 200, 145, 160,10);
 
-        cvui::checkbox("Live adjustments", &LiveOffsets, 0xffffff);
+        if(cvui::checkbox("Live adjustments", &LiveOffsets, 0xffffff) && ApplyOffsets){
+            Offsets.position.x = double(XOffset/1000);
+            Offsets.position.y = double(YOffset/1000);
+            Offsets.position.z = double(ZOffset/1000);
+            Offsets.orientation.x = RollOffset;
+            Offsets.orientation.y = PitchOffset;
+            Offsets.orientation.z = YawOffset;
+        }
+        else{
+            Offsets.position.x = 0;
+            Offsets.position.y = 0;
+            Offsets.position.z = 0;
+            Offsets.orientation.x = 0;
+            Offsets.orientation.y = 0;
+            Offsets.orientation.z = 0;
+
+        }
         cvui::space(5);
         cvui::text("Rotation (deg):", 0.4, 0xffffff);
 
@@ -507,6 +537,7 @@ void publishAllTheRos(){
     CommandPublisher.publish(command);
     str_msg.data = GripperState;
     GripperStatePublisher.publish(str_msg);
+    OffsetPublisher.publish(Offsets);
 }
 
 void checkifMarkerExists(Marker marker){
