@@ -352,6 +352,7 @@ class MarkerTaskGenerator(TaskGenerator):
                     //place
                     if got_to_waypoint:
                         grabbing = False
+                        self.pub_state.publish("finished")
                         if grabAmount >= 90:
                             placing = False
                             got_to_waypoint = False
