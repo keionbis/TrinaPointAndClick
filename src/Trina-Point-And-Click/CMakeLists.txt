@@ -7,9 +7,20 @@ find_package(catkin REQUIRED COMPONENTS
         roscpp
         std_msgs
         geometry_msgs
+	message_generation
         )
 find_package(OpenCV REQUIRED)
+add_message_files(
+    FILES
+    Marker.msg
+    MarkerArray.msg
+)
 
+generate_messages(
+        DEPENDENCIES
+        geometry_msgs
+        std_msgs
+)
 catkin_package(
         #  INCLUDE_DIRS include
         #  LIBRARIES MultipleMarkerTracker
