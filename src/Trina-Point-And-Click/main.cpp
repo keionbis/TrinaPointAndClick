@@ -252,20 +252,27 @@ void drawCubeWireFrame(
             projectPoints(
                     axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints
             );
+            cv::Scalar blue (255, 0, 0);
+            cv::Scalar yellow (0, 255, 255);
+            cv::Scalar color = blue;
 
+
+            if(id == PickID || id == PlaceID){
+                color = yellow;
+            }
             // draw cube edges lines
-            cv::line(image, imagePoints[0], imagePoints[1], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[0], imagePoints[3], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[0], imagePoints[4], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[1], imagePoints[2], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[1], imagePoints[5], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[2], imagePoints[3], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[2], imagePoints[6], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[3], imagePoints[7], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[4], imagePoints[5], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[4], imagePoints[7], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[5], imagePoints[6], cv::Scalar(255, 0, 0), 3);
-            cv::line(image, imagePoints[6], imagePoints[7], cv::Scalar(255, 0, 0), 3);
+            cv::line(image, imagePoints[0], imagePoints[1], color, 3);
+            cv::line(image, imagePoints[0], imagePoints[3], color, 3);
+            cv::line(image, imagePoints[0], imagePoints[4], color, 3);
+            cv::line(image, imagePoints[1], imagePoints[2], color, 3);
+            cv::line(image, imagePoints[1], imagePoints[5], color, 3);
+            cv::line(image, imagePoints[2], imagePoints[3], color, 3);
+            cv::line(image, imagePoints[2], imagePoints[6], color, 3);
+            cv::line(image, imagePoints[3], imagePoints[7], color, 3);
+            cv::line(image, imagePoints[4], imagePoints[5], color, 3);
+            cv::line(image, imagePoints[4], imagePoints[7], color, 3);
+            cv::line(image, imagePoints[5], imagePoints[6], color, 3);
+            cv::line(image, imagePoints[6], imagePoints[7], color, 3);
             return;
         }
     }
