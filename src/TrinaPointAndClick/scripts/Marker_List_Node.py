@@ -23,7 +23,7 @@ class Marker_Node():
         self.marker_list = []
         
         #set up publishers and subscribers
-        self.sub_marker_tracker = rospy.Subscriber('/MarkerTrackerTransform', PoseStamped, self.callback_tracker)
+        self.sub_marker_tracker = rospy.Subscriber('/MarkerPose', PoseStamped, self.callback_tracker)
         self.pub_marker_list = rospy.Publisher('/MarkerArray', MarkerArray, latch=True, queue_size=1)
 
         #create a ROS Timer for publishing data
@@ -56,7 +56,7 @@ class Marker_Node():
                     self.marker_list[i].workspace = initial_data.workspace
                     self.marker_list[i].visible = initial_data.visible
                     self.marker_list[i].time = initial_data.time
-                    self.markert_list[i].transform = initial_data.transform
+                    self.marker_list[i].transform = initial_data.transform
                     self.marker_list[i].distance = initial_data.distance     
                     
                     #return if the marker is found in the list
@@ -98,7 +98,7 @@ class Marker_Node():
         output_transform.translation.y = output_translation[1]
         output_transform.translation.z = output_translation[2]  
         #TODO: Check that the rotation transform is correct.
-        output_transform.rotation = data.rotation
+        output_transform.rotation = data.orientation
 
         return output_transform
 
