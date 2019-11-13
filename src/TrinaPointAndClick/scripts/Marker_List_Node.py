@@ -3,7 +3,7 @@ import rospy
 import numpy as np
 import math
 from geometry_msgs.msg import PoseStamped, Transform
-from Trina-Point-And-Click.msg import Marker, MarkerArray
+from TrinaPointAndClick.msg import Marker, MarkerArray
 
 class Marker_Node():
     """
