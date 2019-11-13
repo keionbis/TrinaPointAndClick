@@ -85,7 +85,7 @@ from geometry_msgs.msg import Pose
 # from baxter_pykdl import baxter_kinematics
 import numpy as np
 from UI.utils.gripper_controller import *
-from Trina-Point-And-Click.msg import Marker, MarkerArray
+from TrinaPointAndClick.msg import Marker, MarkerArray
 
 # imaging stuff
 try:
@@ -334,6 +334,12 @@ class MarkerTaskGenerator(TaskGenerator):
         
         gripPercent = grabAmount
         
+        #publish grip command to the correct hand
+        if (self.limb == 'right'):
+            self.pub_r.publish(gripPercent)
+        else:
+            self.pub_l.publish(gripPercent)
+        
         xpick = state['cup-markers'][pickId].transform.translation.x
         ypick = state['cup-markers'][pickId].transform.translation.y
         zpick = state['cup-markers'][pickId].transform.translation.z
@@ -418,13 +424,6 @@ class MarkerTaskGenerator(TaskGenerator):
             # TuckStatus[self.limb] = False
             # print Jointmsg
             return Jointmsg
-            
-                
-        #publish grip command to the correct hand
-        if (self.limb == 'right'):
-            self.pub_r.publish(gripPercent)
-        else:
-            self.pub_l.publish(gripPercent)
             
         # if TuckStatus[self.limb]:
             # Jointmsg = {}
