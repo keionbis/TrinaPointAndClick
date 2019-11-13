@@ -3,6 +3,7 @@
 #include <opencv2/aruco.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/opencv.hpp>
+#include <math.h>       /* sin */
 #define CVUI_IMPLEMENTATION
 #include "cvui.h"
 #include "AuxCameraDisplay.h"
@@ -17,6 +18,7 @@
 #define WINDOW_NAME	"Autonomous Grasping"
 #define CONFIRMATION 50
 #define MAXCLICKERROR 10000
+#define PI 3.14159265
 
 //Marker Data Struct definition
 typedef struct Marker{
@@ -132,7 +134,7 @@ int main(int argc, char *argv[])
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
 
-    in_video.open(0);//Camera index should be a passed parameter
+    in_video.open(2);//Camera index should be a passed parameter
 
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
@@ -181,12 +183,12 @@ int main(int argc, char *argv[])
                     PoseStamped.header.stamp = ros::Time::now();
                     PoseStamped.header.frame_id = std::to_string(ids[i]);
                     PoseStamped.pose.orientation.w = 0;
-                    PoseStamped.pose.orientation.x = rvecs[i][0]+(XOffset/1000);
-                    PoseStamped.pose.orientation.y = rvecs[i][1]+(YOffset/1000);
-                    PoseStamped.pose.orientation.z = rvecs[i][2]+(ZOffset/1000);
-                    PoseStamped.pose.position.x = tvecs[i][0]+RollOffset;
-                    PoseStamped.pose.position.y = tvecs[i][1]+PitchOffset;
-                    PoseStamped.pose.position.z = tvecs[i][2]+YawOffset;
+                    PoseStamped.pose.orientation.x = rvecs[i][0]+double(XOffset)/1000;
+                    PoseStamped.pose.orientation.y = rvecs[i][1]+double(YOffset)/1000;
+                    PoseStamped.pose.orientation.z = rvecs[i][2]+double(ZOffset)/1000;
+                    PoseStamped.pose.position.x = tvecs[i][0]+double(RollOffset)*(PI/180);
+                    PoseStamped.pose.position.y = tvecs[i][1]+double(PitchOffset)*(PI/180);
+                    PoseStamped.pose.position.z = tvecs[i][2]+double(YawOffset)*(PI/180);
                 }
                 else{
                     PoseStamped.header.stamp = ros::Time::now();
@@ -388,12 +390,12 @@ void OffsetsWindow(){
     cvui::beginColumn(frame, 200, 200, 145, 160,10);
 
         if(cvui::checkbox("Live adjustments", &LiveOffsets, 0xffffff) && ApplyOffsets){
-            Offsets.position.x = double(XOffset/1000);
-            Offsets.position.y = double(YOffset/1000);
-            Offsets.position.z = double(ZOffset/1000);
-            Offsets.orientation.x = RollOffset;
-            Offsets.orientation.y = PitchOffset;
-            Offsets.orientation.z = YawOffset;
+            Offsets.position.x = double(XOffset)/1000;
+            Offsets.position.y = double(YOffset)/1000;
+            Offsets.position.z = double(ZOffset)/1000;
+            Offsets.orientation.x = double(RollOffset)*(PI/180);
+            Offsets.orientation.y = double(PitchOffset)*(PI/180);
+            Offsets.orientation.z = double(YawOffset)*(PI/180);
         }
         else{
             Offsets.position.x = 0;
