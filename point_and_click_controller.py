@@ -364,7 +364,7 @@ class MarkerTaskGenerator(TaskGenerator):
             TuckStatus[self.limb] = True
             self.pub_state.publish(False)
         else:
-            TuckStatue[self.limb] = False
+            TuckStatus[self.limb] = False
             if command == "act":
                 if placing:
                     // place
