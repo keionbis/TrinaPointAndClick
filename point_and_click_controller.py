@@ -52,6 +52,9 @@ command = ""
 offsetx = 0.0
 offsety = 0.0
 offsetz = 0.0
+rotx = None
+roty = None
+rotz = None
 placing = False
 hand = None
 
@@ -115,6 +118,7 @@ gamepad_switch = "/transcript"  # to switch camera view
 M_limit = 0.04
 system_state_addr = EbolabotSystemConfig.getdefault_ip('state_server_computer_ip', ('localhost', 4568))
 
+
 class MarkerTaskGenerator(TaskGenerator):
     def __init__(self):
         self.serviceThread = None
@@ -169,15 +173,14 @@ class MarkerTaskGenerator(TaskGenerator):
         rospy.Subscriber('/GripperClosePercent', Int64, callback_percent)
         rospy.Subscriber('/GripperState', String, callback_gripper)
         rospy.Subscriber('/robot/limb/left/endpoint_state', EndpointState, self.callback_pose)
-        #rospy.Subscriber('/robot/limb/left/endpoint_state/pose', Pose, callback_pose)
-        self.pub_l = rospy.Publisher('/left/UbirosGentle', Int8, queue_size = 1)
-        self.pub_r = rospy.Publisher('/right/UbirosGentle', Int8, queue_size = 1)
-        self.pub_state = rospy.Publisher('/CurrentStatus', Bool, queue_size = 1)
-        
+        # rospy.Subscriber('/robot/limb/left/endpoint_state/pose', Pose, callback_pose)
+        self.pub_l = rospy.Publisher('/left/UbirosGentle', Int8, queue_size=1)
+        self.pub_r = rospy.Publisher('/right/UbirosGentle', Int8, queue_size=1)
+        self.pub_state = rospy.Publisher('/CurrentStatus', Bool, queue_size=1)
+
     def callback_pose(self, data):
         global hand
         hand = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
-        
 
     def name(self):
         return "A_Best_Point_and_Click_GUI"
@@ -185,7 +188,7 @@ class MarkerTaskGenerator(TaskGenerator):
     def init(self, world):
         assert self.j == None, "Init may only be called once"
         self.world = world
-        #rospy.init_node("gamepad_node")
+        # rospy.init_node("gamepad_node")
         # Connect to controller
         return True
 
@@ -254,13 +257,13 @@ class MarkerTaskGenerator(TaskGenerator):
 
     def get(self):
         global marker_state
-        
+
         j = self.j
         j.updateState()
 
         state = {}
         resp = marker_state
-        
+
         if resp == None:
             # print "No data"
             return None
@@ -272,7 +275,7 @@ class MarkerTaskGenerator(TaskGenerator):
 
         for marker in resp:
             if not marker.id_number in hasMoved:
-                    hasMoved[marker.id_number] = False
+                hasMoved[marker.id_number] = False
             if marker.workspace:
                 state['workspace-markers'][marker.id_number] = marker
                 if marker.visible:
@@ -317,46 +320,54 @@ class MarkerTaskGenerator(TaskGenerator):
                        'eePosition': self.robotEndEffectorPosition, 'eeTransformation': self.robotEndEffectorTransform,
                        'baseSensedVelocity': self.baseSensedVelocity, 'baseCommandVelocity': self.baseCommandVelocity,
                        'time': int(round(time.time() * 1000)), 'Flag': self.flag}
-        
-        
+
         if self.log:
             print("definitely logging")
         # self.gamepad_csv.writerow(robot_state)
         # rstick = state['rstick']
         # lstick = state['lstick']
-            
+
         if grabbing:
             if grabAmount < 90:
-                grabAmount = grabAmount+0.3
+                grabAmount = grabAmount + 0.3
         else:
             if grabAmount > 0:
-                grabAmount = grabAmount -0.3
-        
+                grabAmount = grabAmount - 0.3
+
         gripPercent = grabAmount
-        
-        #publish grip command to the correct hand
+
+        # publish grip command to the correct hand
         if (self.limb == 'right'):
             self.pub_r.publish(gripPercent)
         else:
             self.pub_l.publish(gripPercent)
-        
+
         xpick = state['cup-markers'][pickId].transform.translation.x
         ypick = state['cup-markers'][pickId].transform.translation.y
         zpick = state['cup-markers'][pickId].transform.translation.z
         xplace = state['workspace-markers'][placeId].transform.translation.x
         yplace = state['workspace-markers'][placeId].transform.translation.y
         zplace = state['workspace-markers'][placeId].transform.translation.z
-        zcalcpick = 3.281511*(xpick**2)*(ypick**2) + 2.962022*(xpick**2)*ypick - 0.239726*(xpick**2) - 3.52277*xpick*(ypick**2) - 4.048555*xpick*ypick + 0.153533*xpick + 0.632763*(ypick**2) + 1.195625*ypick + 0.999591
-        zcalcplace = 3.281511*(xplace**2)*(yplace**2) + 2.962022*(xplace**2)*yplace - 0.239726*(xplace**2) - 3.52277*xplace*(yplace**2) - 4.048555*xplace*yplace + 0.153533*xplace + 0.632763*(yplace**2) + 1.195625*yplace + 0.999591
-        
+        zcalcpick = 3.281511 * (xpick ** 2) * (ypick ** 2) + 2.962022 * (xpick ** 2) * ypick - 0.239726 * (
+                    xpick ** 2) - 3.52277 * xpick * (
+                                ypick ** 2) - 4.048555 * xpick * ypick + 0.153533 * xpick + 0.632763 * (
+                                ypick ** 2) + 1.195625 * ypick + 0.999591
+        zcalcplace = 3.281511 * (xplace ** 2) * (yplace ** 2) + 2.962022 * (xplace ** 2) * yplace - 0.239726 * (
+                    xplace ** 2) - 3.52277 * xplace * (
+                                 yplace ** 2) - 4.048555 * xplace * yplace + 0.153533 * xplace + 0.632763 * (
+                                 yplace ** 2) + 1.195625 * yplace + 0.999591
+
+        rotxy = np.matmul(rotx, roty)
+        rotxyz = np.matmul(rotxy, rotz)
+
         if command == "home":
             TuckStatus[self.limb] = True
             self.pub_state.publish(False)
         else:
-            TuckStatue[self.limb] = False
+            TuckStatus[self.limb] = False
             if command == "act":
                 if placing:
-                    //place
+                    // place
                     if got_to_waypoint:
                         grabbing = False
                         self.pub_state.publish(True)
@@ -367,8 +378,9 @@ class MarkerTaskGenerator(TaskGenerator):
                         self.pub_state.publish(False)
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
-                                   "position": [xplace+offsetx+.015, yplace+offsety+.015, zplace+zcalcplace+offsetz],
-                                   "rotation": [0, 0, 1, -1, 0, 0, 0, -1, 0],
+                                   "position": [xplace + offsetx + .015, yplace + offsety + .015,
+                                                zplace + zcalcplace + offsetz],
+                                   "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
                                    # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
                                    # "rotation":[1,0,0,0,0,-1,0,1,0],   #90 deg rotation about x axis
@@ -377,14 +389,18 @@ class MarkerTaskGenerator(TaskGenerator):
                                    "maxJointDeviation": 0.5,
                                    "safe": 0}
                         print(pos_msg)
-                        print "picking up cup"
+                        print
+                        "picking up cup"
                         print(marker.id_number)
-                        dist = np.sqrt(np.square(hand[0]-xplace+offsetx+.015) + np.square(hand[1]-yplace+offsety+.015) + np.square(hand[2]-zplace+zcalcplace+offsetz))
+                        dist = np.sqrt(np.square(hand[0] - xplace + offsetx + .015) + np.square(
+                            hand[1] - yplace + offsety + .015) + np.square(hand[2] - zplace + zcalcplace + offsetz))
                         if dist < 0.005:
                             got_to_waypoint = True
                         return pos_msg
                 else:
-                    //pick up cup
+                    // pick
+                    up
+                    cup
                     if got_to_waypoint:
                         self.pub_state.publish(False)
                         grabbing = True
@@ -396,8 +412,9 @@ class MarkerTaskGenerator(TaskGenerator):
                         marker = state['cup-markers'][pickId]
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
-                                   "position": [xpick+offsetx+.015, ypick+offsety+.015, zpick+zcalcpick+offsetz],
-                                   "rotation": [0, 0, 1, -1, 0, 0, 0, -1, 0],
+                                   "position": [xpick + offsetx + .015, ypick + offsety + .015,
+                                                zpick + zcalcpick + offsetz],
+                                   "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
                                    # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
                                    # "rotation":[1,0,0,0,0,-1,0,1,0],   #90 deg rotation about x axis
@@ -406,14 +423,15 @@ class MarkerTaskGenerator(TaskGenerator):
                                    "maxJointDeviation": 0.5,
                                    "safe": 0}
                         print(pos_msg)
-                        print "picking up cup"
+                        print
+                        "picking up cup"
                         print(marker.id_number)
-                        dist = np.sqrt(np.square(hand[0]-xpick+offsetx+.015) + np.square(hand[1]-ypick+offsety+.015) + np.square(hand[2]-zpick+zcalcpick+offsetz))
+                        dist = np.sqrt(np.square(hand[0] - xpick + offsetx + .015) + np.square(
+                            hand[1] - ypick + offsety + .015) + np.square(hand[2] - zpick + zcalcpick + offsetz))
                         if dist < 0.005:
                             got_to_waypoint = True
                         return pos_msg
-                            
-        
+
         if TuckStatus[self.limb]:
             Jointmsg = {}
             Jointmsg['type'] = "JointPose"
@@ -424,17 +442,17 @@ class MarkerTaskGenerator(TaskGenerator):
             # TuckStatus[self.limb] = False
             # print Jointmsg
             return Jointmsg
-            
+
         # if TuckStatus[self.limb]:
-            # Jointmsg = {}
-            # Jointmsg['type'] = "JointPose"
-            # Jointmsg['part'] = self.limb
-            # Jointmsg['position'] = TuckPose[self.limb]
-            # Jointmsg['speed'] = 1
-            # Jointmsg['safe'] = 0
-            # TuckStatus[self.limb] = False
-            # print Jointmsg
-            # return Jointmsg
+        # Jointmsg = {}
+        # Jointmsg['type'] = "JointPose"
+        # Jointmsg['part'] = self.limb
+        # Jointmsg['position'] = TuckPose[self.limb]
+        # Jointmsg['speed'] = 1
+        # Jointmsg['safe'] = 0
+        # TuckStatus[self.limb] = False
+        # print Jointmsg
+        # return Jointmsg
 
         # tweak = lambda x: 0 if abs(x * self.jointControlRatio) < 0.001 else x * self.jointControlRatio
 
@@ -442,8 +460,9 @@ class MarkerTaskGenerator(TaskGenerator):
         # return {'type':'Gripper','limb':self.limb,'command':'close'}
         # elif state['RT'] <= 0.1 and lastState['RT'] > 0.1:
         # return {'type':'Gripper','limb':self.limb,'command':'open'}
-        
-        print "Congratulations for finishing successfully/knocking all the cups over!"
+
+        print
+        "Congratulations for finishing successfully/knocking all the cups over!"
         if pickLimb != "Out" and self.lastPick == "Out":
             self.isAuto = True
             print("here")
@@ -513,8 +532,8 @@ class MarkerTaskGenerator(TaskGenerator):
                 # TuckStatus[self.limb] = False
                 # print Jointmsg
                 return Jointmsg'''
-        # else:
-        #    print("Not in BOunding Box")
+            # else:
+            #    print("Not in BOunding Box")
 
             if self.controlSet == 'base':
                 self.baseCommandVelocity = [-viewToWorldScaleXY * float(lstick[1]) / 5,
@@ -628,34 +647,45 @@ def callback_img(data):
 def callback_state(data):
     global marker_state
     marker_state = data.markers
-    
+
+
 def callback_pick(data):
     global pickId
     pickId = data.data
-    
+
+
 def callback_place(data):
     global placeId
     placeId = data.data
-    
+
+
 def callback_command(data):
     global command
     command = data.data
-    
+
+
 def callback_offsets(data):
-    global offsetx, offsety, offsetz
+    global offsetx, offsety, offsetz, rotx, roty, rotz
     offsetx = data.position.x
     offsety = data.position.y
     offsetz = data.position.z
-    
+    xrot = data.orientation.x
+    yrot = data.orientation.y
+    zrot = data.orientation.z
+    rotx = np.array([1, 0, 0], [0, math.cos(xrot), -math.sin(xrot)], [0, math.sin(xrot), math.cos(xrot)])
+    roty = np.array([math.cos(yrot), 0, math.sin(yrot)], [0, 1, 0], [-math.sin(yrot), 0, math.cos(yrot)])
+    rotz = np.array([math.cos(zrot), -math.sin(zrot), 0], [math.sin(zrot), math.cos(zrot), 0], [0, 0, 1])
+
+
 def callback_speed(data):
-    #hello
-    
+    # hello
+
 def callback_percent(data):
-    #percent
-    
+    # percent
+
 def callback_gripper(data):
-    #gripper state i guess
-    
+    # gripper state i guess
+
 '''
 #warning: we have problems where if you subscribe it will stop publishing
 def callback_pose(data):
@@ -663,10 +693,12 @@ def callback_pose(data):
     left_pose = data
     print data
 '''
+
+
 def midpoint(pos1, pos2, xoff, yoff, zoff):
-    newx = (pos1.transform.translation.x + pos2.transform.translation.x)/2 + .015 + xoff
-    newy = (pos1.transform.translation.y + pos2.transform.translation.y)/2 + yoff
-    newz = (pos1.transform.translation.z + pos2.transform.translation.z)/2 + 1.13 + zoff
+    newx = (pos1.transform.translation.x + pos2.transform.translation.x) / 2 + .015 + xoff
+    newy = (pos1.transform.translation.y + pos2.transform.translation.y) / 2 + yoff
+    newz = (pos1.transform.translation.z + pos2.transform.translation.z) / 2 + 1.13 + zoff
     return [newx, newy, newz]
 
 
