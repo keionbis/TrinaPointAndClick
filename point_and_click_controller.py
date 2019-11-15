@@ -180,7 +180,7 @@ class MarkerTaskGenerator(TaskGenerator):
         
 
     def name(self):
-        return "Marker_autonomous"
+        return "A_Best_Point_and_Click_GUI"
 
     def init(self, world):
         assert self.j == None, "Init may only be called once"

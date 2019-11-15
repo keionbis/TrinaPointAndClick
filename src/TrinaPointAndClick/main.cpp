@@ -134,17 +134,20 @@ int main(int argc, char *argv[])
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
 
-    in_video.open(2);//Camera index should be a passed parameter
+    in_video.open(0);//Camera index should be a passed parameter
 
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-    cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+    cv::FileStorage fs("/home/trina/Autonomous_Control/MultipleMarkerTracker/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
     //cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
     fs["distortion_coefficients"] >> dist_coeffs;
-
+    std::cout << "camera_matrix\n"
+              << camera_matrix << std::endl;
+    std::cout << "\ndist coeffs\n"
+              << dist_coeffs << std::endl;
     // Init cvui and tell it to create a OpenCV window, i.e. cv::namedWindow(WINDOW_NAME).
     cvui::init(WINDOW_NAME);
 
