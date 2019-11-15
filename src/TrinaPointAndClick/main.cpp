@@ -525,7 +525,7 @@ void checkReady(){
 
 
 void publishAllTheRos(){
-
+    CommandPublisher.publish(command);
     std_msgs::Int64 msg;
     msg.data = CloseSpeedPercent;
     GripperSpeedPublisher.publish(msg);
@@ -536,7 +536,6 @@ void publishAllTheRos(){
     msg.data = PlaceID;
     PlaceIDPublisher.publish(msg);
     std_msgs::String str_msg;
-    CommandPublisher.publish(command);
     str_msg.data = GripperState;
     GripperStatePublisher.publish(str_msg);
     OffsetPublisher.publish(Offsets);
