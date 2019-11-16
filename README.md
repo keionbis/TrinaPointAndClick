@@ -16,7 +16,7 @@ run one ssh -X terminal to trina:
 
 on desktop:
     cd ~/iml-internal/Ebolabot 
-        source ~/Autonomous_Control/MultipleMarkerTracker/build/devel/setup.bash 
+    source ~/TrinaPointAndClick/build/devel/setup.bash
         ./TaskGUIDemo
 
         
