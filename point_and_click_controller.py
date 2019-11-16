@@ -57,6 +57,7 @@ roty = None
 rotz = None
 placing = False
 hand = None
+deathFromAbove = True
 
 # Import Modules
 import os
@@ -265,7 +266,7 @@ class MarkerTaskGenerator(TaskGenerator):
 
         state = {}
         resp = marker_state
-
+        
         if resp == None:
             # print "No data"
             return None
@@ -315,6 +316,7 @@ class MarkerTaskGenerator(TaskGenerator):
         global pickId, placeId
         global offsetx, offsety, offsetz
         global placing
+        global deathFromAbove
 
         # get robot state data
         self.getRobotStatus()
@@ -361,6 +363,12 @@ class MarkerTaskGenerator(TaskGenerator):
 
                 rotxy = np.matmul(rotx, roty)
                 rotxyz = np.matmul(rotxy, rotz)
+                
+                zwaypoint = 0.
+                if deathFromAbove:
+                    print "DEATH FROM ABOVE!"
+                    zwaypoint = 0.20
+                
                 if placing:
                     #place
                     if got_to_waypoint:
@@ -369,13 +377,14 @@ class MarkerTaskGenerator(TaskGenerator):
                         if grabAmount == 0:
                             placing = False
                             got_to_waypoint = False
+                            deathFromAbove = True
                     else:
                         self.pub_state.publish(False)
                         marker = state['workspace-markers'][placeId]
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
                                    "position": [xplace + offsetx + .015, yplace + offsety + .015,
-                                                zplace + zcalcplace + offsetz],
+                                                zplace + zcalcplace + offsetz + zwaypoint],
                                    "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
                                    # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
@@ -387,10 +396,13 @@ class MarkerTaskGenerator(TaskGenerator):
                         print(pos_msg)
                         print "Placing cup"
                         print(marker.id_number)
-                        dist = np.sqrt(np.square(hand[0] - xplace - offsetx - .015) + np.square(hand[1] - yplace - offsety - .015) + np.square(hand[2] - zplace - zcalcplace - offsetz)) - .93
+                        dist = np.sqrt(np.square(hand[0] - xplace - offsetx - .015) + np.square(hand[1] - yplace - offsety - .215) + np.square(hand[2] - zplace - offsetz - zwaypoint))
                         print(dist)
                         if dist < 0.05:
-                            got_to_waypoint = True
+                            if deathFromAbove:
+                                deathFromAbove = False
+                            else:
+                                got_to_waypoint = True
                         return pos_msg
                 else:
                     # pick up cup
@@ -400,13 +412,14 @@ class MarkerTaskGenerator(TaskGenerator):
                         if grabAmount >= 90:
                             placing = True
                             got_to_waypoint = False
+                            deathFromAbove = True
                     else:
                         self.pub_state.publish(False)
                         marker = state['cup-markers'][pickId]
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
-                                   "position": [xpick + offsetx + .015, ypick + offsety + .015,
-                                                zpick + zcalcpick + offsetz],
+                                   "position": [xpick + offsetx + .085, ypick + offsety + .115,
+                                                zpick + zcalcpick + offsetz + zwaypoint + .05],
                                    "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
                                    # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
@@ -418,10 +431,16 @@ class MarkerTaskGenerator(TaskGenerator):
                         print(pos_msg)
                         print "picking up cup"
                         print(marker.id_number)
-                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .015) + np.square(hand[1] - ypick - offsety - .015) + np.square(hand[2] - zpick - zcalcpick - offsetz)) - .95
+                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .015) + np.square(hand[1] - ypick - offsety - .215) + np.square(hand[2] - zpick - offsetz - zwaypoint - .05))
+                        print(hand[0] - xpick - offsetx - .015)
+                        print(hand[1] - ypick - offsety - .015)
+                        print(hand[2] - zpick - offsetz - zwaypoint)
                         print(dist)
                         if dist < 0.05:
-                            got_to_waypoint = True
+                            if deathFromAbove:
+                                deathFromAbove = False
+                            else:
+                                got_to_waypoint = True
                         return pos_msg
                         
         if TuckStatus[self.limb]:
@@ -453,8 +472,7 @@ class MarkerTaskGenerator(TaskGenerator):
         # elif state['RT'] <= 0.1 and lastState['RT'] > 0.1:
         # return {'type':'Gripper','limb':self.limb,'command':'open'}
 
-        print
-        "Congratulations for finishing successfully/knocking all the cups over!"
+        print "Congratulations for finishing successfully/knocking all the cups over!"
         if pickLimb != "Out" and self.lastPick == "Out":
             self.isAuto = True
             print("here")
