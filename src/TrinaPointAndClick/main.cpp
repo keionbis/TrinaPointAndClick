@@ -50,51 +50,52 @@ void checkReady();
 //GLOBAL VARIABLES
 
 //Marker vectors
-std::vector<Marker> Markers;
-std::vector<Marker> ConfirmedIDs;
+static std::vector<Marker> Markers;
+static std::vector<Marker> ConfirmedIDs;
 //CV Variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
-std::string Pick = "Click 'Pick'.";
-std::string Place = "Click 'Place'.";
-std::string Wrong = "No marker near selection. Try clicking a different spot!";
-std::string Picking = "Click a marker to pick up.";
-std::string Placing = "Click a marker to place.";
-std::string Doing = "Robot in action now";
-std::string Done = "I did it! Now click 'Pick'.";
-std::string Ready = "Click 'Act' to make the robot do stuff.";
+static std::string Pick = "Click 'Pick'.";
+static std::string Place = "Click 'Place'.";
+static std::string Wrong = "No marker near selection. Try clicking a different spot!";
+static std::string Picking = "Click a marker to pick up.";
+static std::string Placing = "Click a marker to place.";
+static std::string Doing = "Robot in action now";
+static std::string Done = "I did it! Now click 'Pick'.";
+static std::string Ready = "Click 'Act' to make the robot do stuff.";
 static std::string state = Pick;
-std_msgs::String command;
-geometry_msgs::Pose Offsets;
-geometry_msgs::PoseStamped PoseStamped;
-bool currentRobotStatus = false;
+static cv::String Act = "Act";
+static std_msgs::String command;
+static geometry_msgs::Pose Offsets;
+static geometry_msgs::PoseStamped PoseStamped;
+static bool currentRobotStatus = false;
 
 //Publisher state variables
-bool AuxCameraOpen = false;
-bool ApplyOffsets = false;
-bool LiveOffsets = false;
-bool GripperOpen = false;
+static bool AuxCameraOpen = false;
+static bool ApplyOffsets = false;
+static bool LiveOffsets = false;
+static bool GripperOpen = false;
 
 //offset and gripper variables
-int XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
-int RollOffset = 0, PitchOffset = 0, YawOffset = 0; //in degrees
-cv::String GripperState = "Open Gripper";
-int ClosePercent = 85, CloseSpeedPercent = 20; //Gripper data
+static int XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
+static int RollOffset = 0, PitchOffset = 0, YawOffset = 0; //in degrees
+static cv::String GripperState = "Open Gripper";
+static int ClosePercent = 85, CloseSpeedPercent = 20; //Gripper data
 
-Marker tmpData;
-int PickID = 2512;
-int PlaceID = 7320;
+static Marker tmpData;
+static int PickID = 2512;
+static int PlaceID = 7320;
 
 //ROS Publishers
-ros::Publisher MarkerPosePublisher;
-ros::Publisher GripperSpeedPublisher;
-ros::Publisher GripperClosePercentPublisher;
-ros::Publisher PickIDPublisher;
-ros::Publisher PlaceIDPublisher;
-ros::Publisher CommandPublisher;
-ros::Publisher GripperStatePublisher;
-ros::Publisher OffsetPublisher;
+static ros::Publisher MarkerPosePublisher;
+static ros::Publisher GripperSpeedPublisher;
+static ros::Publisher GripperClosePercentPublisher;
+static ros::Publisher PickIDPublisher;
+static ros::Publisher PlaceIDPublisher;
+static ros::Publisher CommandPublisher;
+static ros::Publisher GripperStatePublisher;
+static ros::Publisher OffsetPublisher;
 //ROS Subscribers
-ros::Subscriber currentStatusSubscriber;
+static ros::Subscriber currentStatusSubscriber;
 
 void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
     //read in data being published about whether the task is complete or on-going
@@ -139,8 +140,9 @@ int main(int argc, char *argv[])
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-    cv::FileStorage fs("/home/trina/Autonomous_Control/MultipleMarkerTracker/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
-    //cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
+//    cv::FileStorage fs("/home/trina/Autonomous_Control/MultipleMarkerTracker/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+    cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+//    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
     fs["distortion_coefficients"] >> dist_coeffs;
@@ -302,29 +304,43 @@ void drawCubeWireFrame(
 }
 
 void UIButtons(){
-    if (cvui::button(frame, 30, 80,120,40 ,  "&Pick")) {
+    if (cvui::button(frame, 30, 80,120,40 ,  "Pick")) {
         state = Picking;
     }
 
-    if (cvui::button(frame, 180, 80,120,40 , "&Place")) {
+    if (cvui::button(frame, 180, 80,120,40 , "Place")) {
         state = Placing;
     }
 
-    if (cvui::button(frame, 500, 500,120,40 ,  "&Act")) {
+    if (cvui::button(frame, 500, 500,120,40 , Act)) {
         //stop publishers running
-        if (state == Ready){
-            state = Doing;
-            command.data = "act";
+        if (Act == "Act"){
+            if (state == Ready){
+                state = Doing;
+                command.data = "act";
+                Act = "Pause";
+            }
         }
+        else if (Act == "Pause"){
+            command.data = "cancel";
+            Act = "Resume";
+        }
+        else if (Act == "Resume"){
+            command.data = "act";
+            Act = "Pause";
+        }
+
     }
-    if (cvui::button(frame, 650, 500,120,40 , "&Cancel")) {
+    if (cvui::button(frame, 650, 500,120,40 , "Cancel")) {
         //stop publishers running
         state = Pick;
+        Act = "Act";
         command.data = "cancel";
     }
 
-    if (cvui::button(frame, 500, 550,120,40 ,  "&Reset")) {
+    if (cvui::button(frame, 500, 550,120,40 ,  "Reset")) {
         state = Pick;
+        Act = "Act";
         PickID = 2512;
         PlaceID = 7320;
         currentRobotStatus = false;
@@ -445,12 +461,16 @@ void OffsetsWindow(){
             cvui::space(35);
            if(cvui::button(120, 40, GripperState)){
                 if (GripperOpen){
-                    GripperState = "Close Gripper";
+                    GripperState = "Open Gripper";
+                    printf("Closing gripper\n");
                 }
                 else{
-                    GripperState = "Open Gripper";
+                    GripperState = "Close Gripper";
+                    printf("Opening gripper\n");
+
                 }
                 GripperOpen =! GripperOpen;
+                printf("GripperOpen: %d\n", GripperOpen);
 
             }
 
