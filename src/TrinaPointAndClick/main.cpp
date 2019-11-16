@@ -186,12 +186,12 @@ int main(int argc, char *argv[])
                     PoseStamped.header.stamp = ros::Time::now();
                     PoseStamped.header.frame_id = std::to_string(ids[i]);
                     PoseStamped.pose.orientation.w = 0;
-                    PoseStamped.pose.orientation.x = rvecs[i][0]+double(XOffset)/1000;
-                    PoseStamped.pose.orientation.y = rvecs[i][1]+double(YOffset)/1000;
-                    PoseStamped.pose.orientation.z = rvecs[i][2]+double(ZOffset)/1000;
-                    PoseStamped.pose.position.x = tvecs[i][0]+double(RollOffset)*(PI/180);
-                    PoseStamped.pose.position.y = tvecs[i][1]+double(PitchOffset)*(PI/180);
-                    PoseStamped.pose.position.z = tvecs[i][2]+double(YawOffset)*(PI/180);
+                    PoseStamped.pose.orientation.x = rvecs[i][0]+double(RollOffset)*(PI/180);
+                    PoseStamped.pose.orientation.y = rvecs[i][1]+double(PitchOffset)*(PI/180);
+                    PoseStamped.pose.orientation.z = rvecs[i][2]+double(YawOffset)*(PI/180);
+                    PoseStamped.pose.position.x = tvecs[i][0]+double(XOffset)/1000;
+                    PoseStamped.pose.position.y = tvecs[i][1]+double(YOffset)/1000;
+                    PoseStamped.pose.position.z = tvecs[i][2]+double(ZOffset)/1000;
                 }
                 else{
                     PoseStamped.header.stamp = ros::Time::now();
@@ -342,6 +342,7 @@ void UIButtons(){
         //Gripper data
         ClosePercent = 85;
         CloseSpeedPercent = 20;
+        command.data = "cancel";
     }
     if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
         //tell robot to go to its neutral pose

@@ -83,12 +83,14 @@ from klampt.vis import gldraw
 from klampt.vis.glinterface import GLPluginInterface as GLPluginBase
 from klampt.vis.glcommon import GLWidgetPlugin
 from klampt.math import so3, se3, vectorops
+import math
 from std_msgs.msg import String, Int16, Float32MultiArray, Int8, Int64, Bool
 from geometry_msgs.msg import Pose
 # from baxter_pykdl import baxter_kinematics
 import numpy as np
 from UI.utils.gripper_controller import *
 from TrinaPointAndClick.msg import Marker, MarkerArray
+from baxter_core_msgs.msg import EndpointState
 
 # imaging stuff
 try:
@@ -342,40 +344,34 @@ class MarkerTaskGenerator(TaskGenerator):
         else:
             self.pub_l.publish(gripPercent)
 
-        xpick = state['cup-markers'][pickId].transform.translation.x
-        ypick = state['cup-markers'][pickId].transform.translation.y
-        zpick = state['cup-markers'][pickId].transform.translation.z
-        xplace = state['workspace-markers'][placeId].transform.translation.x
-        yplace = state['workspace-markers'][placeId].transform.translation.y
-        zplace = state['workspace-markers'][placeId].transform.translation.z
-        zcalcpick = 3.281511 * (xpick ** 2) * (ypick ** 2) + 2.962022 * (xpick ** 2) * ypick - 0.239726 * (
-                    xpick ** 2) - 3.52277 * xpick * (
-                                ypick ** 2) - 4.048555 * xpick * ypick + 0.153533 * xpick + 0.632763 * (
-                                ypick ** 2) + 1.195625 * ypick + 0.999591
-        zcalcplace = 3.281511 * (xplace ** 2) * (yplace ** 2) + 2.962022 * (xplace ** 2) * yplace - 0.239726 * (
-                    xplace ** 2) - 3.52277 * xplace * (
-                                 yplace ** 2) - 4.048555 * xplace * yplace + 0.153533 * xplace + 0.632763 * (
-                                 yplace ** 2) + 1.195625 * yplace + 0.999591
-
-        rotxy = np.matmul(rotx, roty)
-        rotxyz = np.matmul(rotxy, rotz)
-
         if command == "home":
             TuckStatus[self.limb] = True
             self.pub_state.publish(False)
         else:
             TuckStatus[self.limb] = False
             if command == "act":
+                xpick = state['cup-markers'][pickId].transform.translation.x
+                ypick = state['cup-markers'][pickId].transform.translation.y
+                zpick = state['cup-markers'][pickId].transform.translation.z
+                xplace = state['workspace-markers'][placeId].transform.translation.x
+                yplace = state['workspace-markers'][placeId].transform.translation.y
+                zplace = state['workspace-markers'][placeId].transform.translation.z
+                zcalcpick = 3.281511 * (xpick ** 2) * (ypick ** 2) + 2.962022 * (xpick ** 2) * ypick - 0.239726 * (xpick ** 2) - 3.52277 * xpick * (ypick ** 2) - 4.048555 * xpick * ypick + 0.153533 * xpick + 0.632763 * (ypick ** 2) + 1.195625 * ypick + 0.999591
+                zcalcplace = 3.281511 * (xplace ** 2) * (yplace ** 2) + 2.962022 * (xplace ** 2) * yplace - 0.239726 * (xplace ** 2) - 3.52277 * xplace * (yplace ** 2) - 4.048555 * xplace * yplace + 0.153533 * xplace + 0.632763 * (yplace ** 2) + 1.195625 * yplace + 0.999591
+
+                rotxy = np.matmul(rotx, roty)
+                rotxyz = np.matmul(rotxy, rotz)
                 if placing:
-                    // place
+                    #place
                     if got_to_waypoint:
                         grabbing = False
                         self.pub_state.publish(True)
-                        if grabAmount >= 90:
+                        if grabAmount == 0:
                             placing = False
                             got_to_waypoint = False
                     else:
                         self.pub_state.publish(False)
+                        marker = state['workspace-markers'][placeId]
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
                                    "position": [xplace + offsetx + .015, yplace + offsety + .015,
@@ -389,18 +385,15 @@ class MarkerTaskGenerator(TaskGenerator):
                                    "maxJointDeviation": 0.5,
                                    "safe": 0}
                         print(pos_msg)
-                        print
-                        "picking up cup"
+                        print "Placing cup"
                         print(marker.id_number)
-                        dist = np.sqrt(np.square(hand[0] - xplace + offsetx + .015) + np.square(
-                            hand[1] - yplace + offsety + .015) + np.square(hand[2] - zplace + zcalcplace + offsetz))
-                        if dist < 0.005:
+                        dist = np.sqrt(np.square(hand[0] - xplace - offsetx - .015) + np.square(hand[1] - yplace - offsety - .015) + np.square(hand[2] - zplace - zcalcplace - offsetz)) - .93
+                        print(dist)
+                        if dist < 0.05:
                             got_to_waypoint = True
                         return pos_msg
                 else:
-                    // pick
-                    up
-                    cup
+                    # pick up cup
                     if got_to_waypoint:
                         self.pub_state.publish(False)
                         grabbing = True
@@ -423,15 +416,14 @@ class MarkerTaskGenerator(TaskGenerator):
                                    "maxJointDeviation": 0.5,
                                    "safe": 0}
                         print(pos_msg)
-                        print
-                        "picking up cup"
+                        print "picking up cup"
                         print(marker.id_number)
-                        dist = np.sqrt(np.square(hand[0] - xpick + offsetx + .015) + np.square(
-                            hand[1] - ypick + offsety + .015) + np.square(hand[2] - zpick + zcalcpick + offsetz))
-                        if dist < 0.005:
+                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .015) + np.square(hand[1] - ypick - offsety - .015) + np.square(hand[2] - zpick - zcalcpick - offsetz)) - .95
+                        print(dist)
+                        if dist < 0.05:
                             got_to_waypoint = True
                         return pos_msg
-
+                        
         if TuckStatus[self.limb]:
             Jointmsg = {}
             Jointmsg['type'] = "JointPose"
@@ -672,19 +664,22 @@ def callback_offsets(data):
     xrot = data.orientation.x
     yrot = data.orientation.y
     zrot = data.orientation.z
-    rotx = np.array([1, 0, 0], [0, math.cos(xrot), -math.sin(xrot)], [0, math.sin(xrot), math.cos(xrot)])
-    roty = np.array([math.cos(yrot), 0, math.sin(yrot)], [0, 1, 0], [-math.sin(yrot), 0, math.cos(yrot)])
-    rotz = np.array([math.cos(zrot), -math.sin(zrot), 0], [math.sin(zrot), math.cos(zrot), 0], [0, 0, 1])
+    rotx = np.array([[1, 0, 0], [0, math.cos(xrot), -math.sin(xrot)], [0, math.sin(xrot), math.cos(xrot)]])
+    roty = np.array([[math.cos(yrot), 0, math.sin(yrot)], [0, 1, 0], [-math.sin(yrot), 0, math.cos(yrot)]])
+    rotz = np.array([[math.cos(zrot), -math.sin(zrot), 0], [math.sin(zrot), math.cos(zrot), 0], [0, 0, 1]])
 
 
 def callback_speed(data):
     # hello
+    return
 
 def callback_percent(data):
     # percent
+    return
 
 def callback_gripper(data):
     # gripper state i guess
+    return
 
 '''
 #warning: we have problems where if you subscribe it will stop publishing
