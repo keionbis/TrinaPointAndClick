@@ -5,4 +5,6 @@
     </node>
     <node pkg="TrinaPointAndClick" type="Marker_List_Node.py" name="Marker_List_Node" output="screen">
     </node>
+    <!-- https://answers.ros.org/question/239070/launch-other-launch-files-and-ros-nodes/ -->
+
 </launch>
