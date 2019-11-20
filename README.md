@@ -12,7 +12,7 @@ run four ssh terminals to trina:
 
 run one ssh -X terminal to trina:
     source ~/TrinaPointAndClick/devel/setup.bash
-    roslaunch TrinaPointAndClick TrinaPointAndClick.launch 
+    roslaunch TrinaPointAndClick TrinaPointAndClickUI.launch 
 
 on desktop:
     cd ~/iml-internal/Ebolabot 

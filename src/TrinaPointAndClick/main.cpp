@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-    cv::FileStorage fs("/home/trina/Autonomous_Control/MultipleMarkerTracker/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+    cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
 //    cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
 //    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
@@ -157,6 +157,12 @@ int main(int argc, char *argv[])
     while (in_video.grab()&& ros::ok()){ //Loop while video exists
         //Start Image Processing
         in_video.retrieve(image);
+        
+        cv::Point2f center((image.cols-1)/2.0, (image.rows-1)/2.0);
+        //cv::Mat rot = cv::getRotationMatrix2D(center, -180, 1.0);
+
+        //warpAffine(image, image, rot, image.size());
+
         image.copyTo(image_copy);
         frame = cv::Scalar(40, 40, 40); //set UI color
         std::vector<int> ids;
