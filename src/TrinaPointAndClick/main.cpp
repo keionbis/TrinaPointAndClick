@@ -79,7 +79,7 @@ static bool GripperOpen = false;
 static int XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
 static int RollOffset = 0, PitchOffset = 0, YawOffset = 0; //in degrees
 static cv::String GripperState = "Open Gripper";
-static int ClosePercent = 85, CloseSpeedPercent = 20; //Gripper data
+static int ClosePercent = 95, CloseSpeedPercent = 20; //Gripper data
 
 static Marker tmpData;
 static int PickID = 2512;
@@ -362,13 +362,14 @@ void UIButtons(){
         RollOffset = 0, PitchOffset = 0, YawOffset = 0; //in degrees
         GripperState = "Open Gripper";
         //Gripper data
-        ClosePercent = 85;
+        ClosePercent = 95;
         CloseSpeedPercent = 20;
         command.data = "cancel";
     }
     if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
         //tell robot to go to its neutral pose
         command.data = "home";
+        Act = "Act";
     }
     if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
         //launch secondary window and display camera images there
