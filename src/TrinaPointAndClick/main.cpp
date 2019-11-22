@@ -74,6 +74,7 @@ static bool AuxCameraOpen = false;
 static bool ApplyOffsets = false;
 static bool LiveOffsets = false;
 static bool GripperOpen = false;
+static bool Midpoint = false;
 
 //offset and gripper variables
 static int XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
@@ -106,6 +107,7 @@ void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
             state = Done;
             PickID = 2512;
             PlaceID = 7320;
+            Midpoint = false;
         }
     }
 }
@@ -277,9 +279,9 @@ void drawCubeWireFrame(
             projectPoints(
                     axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints
             );
-            cv::Scalar blue (255, 0, 0);
-            cv::Scalar yellow (0, 255, 255);
-            cv::Scalar teal (255, 2250,0 );
+            cv::Scalar blue (255, 0, 0);//un-picked
+            cv::Scalar yellow (0, 255, 255);//picked for pickup
+            cv::Scalar teal (255, 2250,0 );//picked for place
 
             cv::Scalar color = blue;
 
@@ -317,6 +319,7 @@ void UIButtons(){
     if (cvui::button(frame, 180, 80,120,40 , "Place")) {
         state = Placing;
     }
+    cvui::checkbox(frame, 180, 130, "Midpoint", &Midpoint, 0xffffff);
 
     if (cvui::button(frame, 500, 500,120,40 , Act)) {
         //stop publishers running
@@ -356,6 +359,7 @@ void UIButtons(){
         ApplyOffsets = false;
         LiveOffsets = false;
         GripperOpen = false;
+        Midpoint = false;
 
         //offset and gripper variables
         XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
@@ -522,7 +526,7 @@ void CheckMouse(){
                 checkReady();
 
 
-            } else if (state == Placing) {
+            } else if (state == Placing && !Midpoint) {
 
                 printf("Placing at %d %d \n", mouseX, mouseY);
                 int ID = LocateNearestMarker({(float) mouseX, (float) mouseY});
@@ -620,3 +624,6 @@ int LocateNearestMarker(cv::Point2f clickLocation) {
     return nearestID;
 }
 
+cv::Point2f MidpointMarkers(Marker MarkerA, Marker MarkerB){
+ 
+}
