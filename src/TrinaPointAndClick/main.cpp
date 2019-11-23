@@ -42,11 +42,11 @@ void drawCubeWireFrame(
 void publishAllTheRos();
 void checkifMarkerExists(Marker marker);
 void MarkerIsReliable(Marker marker);
-int LocateNearestMarker(cv::Point2f clickLocation);
+Marker LocateNearestMarker(cv::Point2f clickLocation);
 void initialisePublishers();
 void initialiseSubscribers();
 void checkReady();
-
+Marker MidpointMarkers(Marker MarkerA, Marker MarkerB);
 //GLOBAL VARIABLES
 
 //Marker vectors
@@ -59,6 +59,9 @@ static std::string Place = "Click 'Place'.";
 static std::string Wrong = "No marker near selection. Try clicking a different spot!";
 static std::string Picking = "Click a marker to pick up.";
 static std::string Placing = "Click a marker to place.";
+static std::string MidPoint1 = "Click The first Marker";
+static std::string MidPoint2 = "Click The second Marker";
+
 static std::string Doing = "Robot in action now";
 static std::string Done = "I did it! Now click 'Pick'.";
 static std::string Ready = "Click 'Act' to make the robot do stuff.";
@@ -74,8 +77,6 @@ static bool AuxCameraOpen = false;
 static bool ApplyOffsets = false;
 static bool LiveOffsets = false;
 static bool GripperOpen = false;
-static bool Midpoint = false;
-
 //offset and gripper variables
 static int XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
 static int RollOffset = 0, PitchOffset = 0, YawOffset = 0; //in degrees
@@ -97,6 +98,11 @@ static ros::Publisher GripperStatePublisher;
 static ros::Publisher OffsetPublisher;
 //ROS Subscribers
 static ros::Subscriber currentStatusSubscriber;
+static cv::String PlaceBtn = "Pick Single";
+cv::Mat camera_matrix, dist_coeffs;
+cv::Mat image_copy;
+float actual_marker_l = 0.101; // this should be in meters
+
 
 void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
     //read in data being published about whether the task is complete or on-going
@@ -107,7 +113,6 @@ void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
             state = Done;
             PickID = 2512;
             PlaceID = 7320;
-            Midpoint = false;
         }
     }
 }
@@ -115,9 +120,7 @@ void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
 int main(int argc, char *argv[])
 {
     int wait_time = 10;
-    float actual_marker_l = 0.101; // this should be in meters
-    cv::Mat image, image_copy;
-    cv::Mat camera_matrix, dist_coeffs;
+    cv::Mat image;
     std::ostringstream vector_to_marker;
 
     ros::init(argc, argv, "listener");
@@ -142,8 +145,8 @@ int main(int argc, char *argv[])
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-    cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
-//    cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+ //   cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+    cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
 //    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
@@ -255,7 +258,7 @@ void drawCubeWireFrame(
         cv::InputArray distCoeffs, cv::InputArray rvec, cv::InputArray tvec,
         float l, int id){
     for(std::vector<Marker>::iterator it = ConfirmedIDs.begin() ; it != ConfirmedIDs.end(); ++it){
-        if(it->ID == id) {
+        if(it->ID == id || id == 999) {
             CV_Assert(
                     image.getMat().total() != 0 &&
                     (image.getMat().channels() == 1 || image.getMat().channels() == 3)
@@ -281,7 +284,8 @@ void drawCubeWireFrame(
             );
             cv::Scalar blue (255, 0, 0);//un-picked
             cv::Scalar yellow (0, 255, 255);//picked for pickup
-            cv::Scalar teal (255, 2250,0 );//picked for place
+            cv::Scalar teal (255, 225,0 );//picked for place
+            cv::Scalar purple (255, 0,255 );//picked Midpoint
 
             cv::Scalar color = blue;
 
@@ -291,7 +295,9 @@ void drawCubeWireFrame(
             }
             else if(id == PlaceID){
                 color = teal;
-
+            }
+            else if(state == MidPoint1 || state == MidPoint2){//the id for midpoint
+                color = purple;
             }
             // draw cube edges lines
             cv::line(image, imagePoints[0], imagePoints[1], color, 3);
@@ -316,10 +322,16 @@ void UIButtons(){
         state = Picking;
     }
 
-    if (cvui::button(frame, 180, 80,120,40 , "Place")) {
-        state = Placing;
+    if (cvui::button(frame, 180, 80,120,40 , PlaceBtn)) {
+        if(PlaceBtn == "Pick Single") {
+            state = Placing;
+            PlaceBtn = "Pick Midpoint";
+        }
+        else{
+            state = MidPoint1;
+            PlaceBtn = "Pick Single";
+        }
     }
-    cvui::checkbox(frame, 180, 130, "Midpoint", &Midpoint, 0xffffff);
 
     if (cvui::button(frame, 500, 500,120,40 , Act)) {
         //stop publishers running
@@ -359,7 +371,6 @@ void UIButtons(){
         ApplyOffsets = false;
         LiveOffsets = false;
         GripperOpen = false;
-        Midpoint = false;
 
         //offset and gripper variables
         XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
@@ -516,7 +527,8 @@ void CheckMouse(){
             //if pick up marker exists in this area & is selected and state == 0
             if (state == Picking) {
                 printf("Picking Up at %d %d \n", mouseX, mouseY);
-                int ID = LocateNearestMarker({(float) mouseX, (float) mouseY});
+                int ID = LocateNearestMarker({(float) mouseX, (float) mouseY}).ID;
+
                 if (ID == PlaceID) {
                     state = Wrong;
                 } else {
@@ -526,10 +538,10 @@ void CheckMouse(){
                 checkReady();
 
 
-            } else if (state == Placing && !Midpoint) {
+            } else if (state == Placing) {
 
                 printf("Placing at %d %d \n", mouseX, mouseY);
-                int ID = LocateNearestMarker({(float) mouseX, (float) mouseY});
+                int ID = LocateNearestMarker({(float) mouseX, (float) mouseY}).ID;
                 if (ID == PickID) {
                     state = Wrong;
                 } else {
@@ -539,6 +551,19 @@ void CheckMouse(){
                 }
                 checkReady();
 
+            }else if (state == MidPoint1 || state == MidPoint2){
+                static Marker ID_1;
+                static Marker ID_2;
+                if(state == MidPoint1){
+                     ID_1 = LocateNearestMarker({(float) mouseX, (float) mouseY});
+                     state = MidPoint2;
+                }
+                else{
+                     ID_2 = LocateNearestMarker({(float) mouseX, (float) mouseY});
+                    MidpointMarkers(ID_1, ID_2);
+                    state = MidPoint1;
+
+                }
             }
 
         }
@@ -602,8 +627,8 @@ void MarkerIsReliable(Marker marker){
     ConfirmedIDs.push_back(marker);
 }
 
-int LocateNearestMarker(cv::Point2f clickLocation) {
-    int nearestID = 65535;
+Marker LocateNearestMarker(cv::Point2f clickLocation) {
+    Marker nearestID;
     cv::Point2f NearestMarerLocation = {0,0};
     float disttoNearest = sqrt(pow((NearestMarerLocation.x-clickLocation.x),2)+(pow((NearestMarerLocation.y-clickLocation.y), 2)));
     for (std::vector<Marker>::iterator it = ConfirmedIDs.begin(); it != ConfirmedIDs.end(); it++) {
@@ -612,7 +637,9 @@ int LocateNearestMarker(cv::Point2f clickLocation) {
                     pow((it->centroid.x - clickLocation.x), 2) + (pow((it->centroid.y - clickLocation.y), 2)));
             if (disttoCurrentMarer < disttoNearest && disttoCurrentMarer < MAXCLICKERROR) {
                 disttoNearest = disttoCurrentMarer;
-                nearestID = it->ID;
+                nearestID = {it->ID, it->timesSeen,
+                             {it->location[0], it->location[1], it->location[2], it->location[3]},
+                             it->centroid, it->isVisible};
             }
             else {
                 //clicked too far away
@@ -624,6 +651,44 @@ int LocateNearestMarker(cv::Point2f clickLocation) {
     return nearestID;
 }
 
-cv::Point2f MidpointMarkers(Marker MarkerA, Marker MarkerB){
- 
+Marker MidpointMarkers(Marker MarkerA, Marker MarkerB){
+    if(MarkerA.centroid.x == MarkerB.centroid.x || MarkerA.centroid.y == MarkerB.centroid.y){
+
+    }
+    else{
+        std::vector<cv::Vec3d> rvecs, tvecs;
+
+        float x = ((MarkerA.centroid.x + MarkerB.centroid.x) / 2);
+        float y = ((MarkerA.centroid.y + MarkerB.centroid.y) / 2);
+        cv::Point2f _MidpointCentroid;
+        _MidpointCentroid.x = x;
+        _MidpointCentroid.y = y;
+        std::vector<std::vector<cv::Point2f>> midpointCorners;
+        std::vector<cv::Point2f> TmpCorners;
+        cv::Point2f tmp;
+        tmp.x = _MidpointCentroid.x - 10;
+        tmp.y = _MidpointCentroid.y - 10;
+        TmpCorners.push_back(tmp);
+        tmp.x = _MidpointCentroid.x - 10;
+        tmp.y = _MidpointCentroid.y + 10;
+        TmpCorners.push_back(tmp);
+        tmp.x = _MidpointCentroid.x + 10;
+        tmp.y = _MidpointCentroid.y - 10;
+        TmpCorners.push_back(tmp);
+        tmp.x = _MidpointCentroid.x + 10;
+        tmp.y = _MidpointCentroid.y + 10;
+        TmpCorners.push_back(tmp);
+        midpointCorners.push_back(TmpCorners);
+
+
+
+        cv::aruco::estimatePoseSingleMarkers(
+                midpointCorners, actual_marker_l, camera_matrix, dist_coeffs,
+                rvecs, tvecs
+                );
+        drawCubeWireFrame(
+                image_copy, camera_matrix, dist_coeffs, rvecs, tvecs,
+                actual_marker_l, 999
+        );
+    }
 }
