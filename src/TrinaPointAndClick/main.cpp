@@ -59,18 +59,19 @@ static std::string Place = "Click 'Place'.";
 static std::string Wrong = "No marker near selection. Try clicking a different spot!";
 static std::string Picking = "Click a marker to pick up.";
 static std::string Placing = "Click a marker to place.";
-static std::string MidPoint1 = "Click The first Marker";
-static std::string MidPoint2 = "Click The second Marker";
+static std::string MidPoint1 = "Click the first Marker.";
+static std::string MidPoint2 = "Click the second Marker.";
 
-static std::string Doing = "Robot in action now";
+static std::string Doing = "Robot in action now.";
 static std::string Done = "I did it! Now click 'Pick'.";
-static std::string Ready = "Click 'Act' to make the robot do stuff.";
+static std::string Ready = "Click 'Act' to make the robot move.";
+static std::string Fail = "I didn't pick up correctly!";
 static std::string state = Pick;
 static cv::String Act = "Act";
 static std_msgs::String command;
 static geometry_msgs::Pose Offsets;
 static geometry_msgs::PoseStamped PoseStamped;
-static bool currentRobotStatus = false;
+static std::string currentRobotStatus = "Working";
 
 //Publisher state variables
 static bool AuxCameraOpen = false;
@@ -106,19 +107,29 @@ bool InMidpoint = false;
 static Marker ID_1;
 static Marker ID_2;
 
-void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
-    printf("lkhsgdbgkas");
+void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
+    printf("qwertyuiopasdfghjklzxcvbnm");
     //read in data being published about whether the task is complete or on-going
     currentRobotStatus = Status->data;
 
     //checks if action was completed
     if (state == Doing){
-        if (currentRobotStatus){
+        if (currentRobotStatus == "Done"){
             state = Done;
             PickID = 2512;
             PlaceID = 7320;
             InMidpoint = false;
             printf("Done");
+        }
+        else if (currentRobotStatus == "Fail") {
+            command.data = "wait";
+            CommandPublisher.publish(command);
+            printf("Failed to pick up.");
+            state = Fail;
+
+        }
+        else if (currentRobotStatus == "Working"){
+            printf("still working.");
         }
     }
 }
@@ -289,14 +300,11 @@ void drawCubeWireFrame(
             axisPoints.push_back(cv::Point3f(-half_l, half_l, l));
             axisPoints.push_back(cv::Point3f(half_l, half_l, 0));
             axisPoints.push_back(cv::Point3f(half_l, -half_l, 0));
-            axisPoints.push_back
-(cv::Point3f(-half_l, -half_l, 0));
+            axisPoints.push_back(cv::Point3f(-half_l, -half_l, 0));
             axisPoints.push_back(cv::Point3f(-half_l, half_l, 0));
 
             std::vector<cv::Point2f> imagePoints;
-            projectPoints(
-                    axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints
-            );
+            projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
             cv::Scalar blue (255, 0, 0);//un-picked
             cv::Scalar yellow (0, 255, 255);//picked for pickup
             cv::Scalar teal (255, 225,0 );//picked for place
@@ -361,7 +369,8 @@ void UIButtons(){
             }
         }
         else if (Act == "Pause"){
-            command.data = "cancel";
+            command.data = "wait";
+            CommandPublisher.publish(command);
             Act = "Resume";
         }
         else if (Act == "Resume"){
