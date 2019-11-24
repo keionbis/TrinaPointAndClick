@@ -19,7 +19,7 @@
 #define CONFIRMATION 50
 #define MAXCLICKERROR 10000
 #define PI 3.14159265
-
+#define WINDOW1_NAME "Fail"
 //Marker Data Struct definition
 typedef struct Marker{
     int ID;
@@ -47,6 +47,8 @@ void initialisePublishers();
 void initialiseSubscribers();
 void checkReady();
 Marker MidpointMarkers(Marker MarkerA, Marker MarkerB);
+void FailWindow(const cv::String& name);
+
 //GLOBAL VARIABLES
 
 //Marker vectors
@@ -54,6 +56,7 @@ static std::vector<Marker> Markers;
 static std::vector<Marker> ConfirmedIDs;
 //CV Variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
+static cv::Mat error_frame = cv::Mat(200, 500, CV_8UC3);
 static std::string Pick = "Click 'Pick'.";
 static std::string Place = "Click 'Place'.";
 static std::string Wrong = "No marker near selection. Try clicking a different spot!";
@@ -126,6 +129,8 @@ void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
             CommandPublisher.publish(command);
             printf("Failed to pick up.");
             state = Fail;
+            cv::namedWindow(WINDOW1_NAME);
+            cvui::watch(WINDOW1_NAME);
 
         }
         else if (currentRobotStatus == "Working"){
@@ -163,8 +168,8 @@ int main(int argc, char *argv[])
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-    cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
-//  cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+   // cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+  cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
 //    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
@@ -180,6 +185,10 @@ int main(int argc, char *argv[])
     while (in_video.grab()&& ros::ok()){ //Loop while video exists
         //Start Image Processing
         in_video.retrieve(image);
+        if(state ==  Fail && cv::getWindowProperty(WINDOW1_NAME, cv::WND_PROP_AUTOSIZE) != -1){
+            //cvui::context(WINDOW1_NAME);
+            FailWindow(WINDOW1_NAME);
+        }
         
         cv::Point2f center((image.cols-1)/2.0, (image.rows-1)/2.0);
         //cv::Mat rot = cv::getRotationMatrix2D(center, -180, 1.0);
@@ -416,10 +425,11 @@ void UIButtons(){
         command.data = "home";
         Act = "Act";
     }
-    if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
+    if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))){
         //launch secondary window and display camera images there
-//        StartCameraDisplay();
-//        AuxCameraOpen = true;
+        cv::namedWindow(WINDOW1_NAME);
+        cvui::watch(WINDOW1_NAME);
+        state = Fail;//        AuxCameraOpen = true;
     }
 }
 
@@ -729,4 +739,52 @@ Marker MidpointMarkers(Marker MarkerA, Marker MarkerB){
 
 
     }
+}
+
+void FailWindow(const cv::String& name) {
+    cvui::context(WINDOW1_NAME);
+    error_frame = cv::Scalar(40, 40, 40); //set UI color
+
+    cvui::printf(error_frame, 80, 50, "A failure was detected, Would you like me to try again? ", name.c_str());
+
+    // Buttons return true if they are clicked
+    if (cvui::button(error_frame, 110, 90, "Try Again")) {
+        command.data = "cancel";
+        CommandPublisher.publish(command);
+        state == Act;
+
+        cv::destroyWindow(WINDOW1_NAME);
+        cv::waitKey(1);
+        cvui::context(WINDOW_NAME);
+
+        return;
+
+
+    }
+    if (cvui::button(error_frame, 220, 90, "Cancel")) {
+        state == Pick;
+        cv::destroyWindow(WINDOW1_NAME);
+        cv::waitKey(1);
+        cvui::context(WINDOW_NAME);
+
+        return;
+
+
+    }
+
+    if (cvui::button(error_frame, 310, 90, "Continue")) {
+        state == Act;
+        cv::destroyWindow(WINDOW1_NAME);
+        cv::waitKey(1);
+        cvui::context(WINDOW_NAME);
+
+        return;
+
+
+    }
+
+    cvui::update(name);
+
+    // Show the content of this window on the screen
+    cvui::imshow(name, error_frame);
 }
