@@ -98,21 +98,27 @@ static ros::Publisher GripperStatePublisher;
 static ros::Publisher OffsetPublisher;
 //ROS Subscribers
 static ros::Subscriber currentStatusSubscriber;
-static cv::String PlaceBtn = "Pick Single";
+static cv::String PlaceBtn = "Place On";
 cv::Mat camera_matrix, dist_coeffs;
 cv::Mat image_copy;
 float actual_marker_l = 0.101; // this should be in meters
-
+bool InMidpoint = false;
+static Marker ID_1;
+static Marker ID_2;
 
 void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
+    printf("lkhsgdbgkas");
     //read in data being published about whether the task is complete or on-going
     currentRobotStatus = Status->data;
+
     //checks if action was completed
     if (state == Doing){
         if (currentRobotStatus){
             state = Done;
             PickID = 2512;
             PlaceID = 7320;
+            InMidpoint = false;
+            printf("Done");
         }
     }
 }
@@ -122,7 +128,8 @@ int main(int argc, char *argv[])
     int wait_time = 10;
     cv::Mat image;
     std::ostringstream vector_to_marker;
-
+     ID_1.ID = 7320;
+     ID_2.ID = 7320;
     ros::init(argc, argv, "listener");
     ros::NodeHandle n;
     command.data= "wait";
@@ -135,7 +142,7 @@ int main(int argc, char *argv[])
      CommandPublisher = n.advertise<std_msgs::String>("Command", 1000);
     OffsetPublisher = n.advertise<geometry_msgs::Pose>("Offsets", 1000);
 
-    currentStatusSubscriber = n.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
+    currentStatusSubscriber = n.subscribe("CurrentStatus", 1, CurrentStatusCallback);
 
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
@@ -145,8 +152,8 @@ int main(int argc, char *argv[])
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
- //   cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
-    cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+    cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+//  cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
 //    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
@@ -184,6 +191,9 @@ int main(int argc, char *argv[])
                     rvecs, tvecs
             );
             for(int x = 0; x<ConfirmedIDs.size();x++){
+                if(ConfirmedIDs[x].ID == 999){
+                 ConfirmedIDs[x].isVisible = true;
+                }
                 ConfirmedIDs[x].isVisible = false;
             }
             // draw axis for each marker
@@ -219,6 +229,10 @@ int main(int argc, char *argv[])
                 }
 
                 MarkerPosePublisher.publish(PoseStamped);
+                if(InMidpoint){
+                    MidpointMarkers(ID_1, ID_2);
+                }
+                
             }
         }
 //End Image Processing
@@ -275,7 +289,8 @@ void drawCubeWireFrame(
             axisPoints.push_back(cv::Point3f(-half_l, half_l, l));
             axisPoints.push_back(cv::Point3f(half_l, half_l, 0));
             axisPoints.push_back(cv::Point3f(half_l, -half_l, 0));
-            axisPoints.push_back(cv::Point3f(-half_l, -half_l, 0));
+            axisPoints.push_back
+(cv::Point3f(-half_l, -half_l, 0));
             axisPoints.push_back(cv::Point3f(-half_l, half_l, 0));
 
             std::vector<cv::Point2f> imagePoints;
@@ -293,10 +308,10 @@ void drawCubeWireFrame(
             if(id == PickID ){
                 color = yellow;
             }
-            else if(id == PlaceID){
+            else if(id == PlaceID && !InMidpoint){
                 color = teal;
             }
-            else if(state == MidPoint1 || state == MidPoint2){//the id for midpoint
+            else if((id == ID_1.ID || id == ID_2.ID)&& InMidpoint){//the id for midpoint
                 color = purple;
             }
             // draw cube edges lines
@@ -323,13 +338,16 @@ void UIButtons(){
     }
 
     if (cvui::button(frame, 180, 80,120,40 , PlaceBtn)) {
-        if(PlaceBtn == "Pick Single") {
+        if(PlaceBtn == "Place On") {
             state = Placing;
-            PlaceBtn = "Pick Midpoint";
+            InMidpoint = false;
+            PlaceBtn = "Place Midpoint";
         }
-        else{
+        else if(PlaceBtn == "Place Midpoint") {
+
             state = MidPoint1;
-            PlaceBtn = "Pick Single";
+            PlaceBtn = "Place On";
+
         }
     }
 
@@ -365,7 +383,10 @@ void UIButtons(){
         PickID = 2512;
         PlaceID = 7320;
         currentRobotStatus = false;
-
+        InMidpoint = false;
+        ID_1.ID = 7320;
+        ID_2.ID = 7320;
+        PlaceBtn = "Place On";
         //Publisher state variables
         AuxCameraOpen = false;
         ApplyOffsets = false;
@@ -552,17 +573,19 @@ void CheckMouse(){
                 checkReady();
 
             }else if (state == MidPoint1 || state == MidPoint2){
-                static Marker ID_1;
-                static Marker ID_2;
+                
                 if(state == MidPoint1){
                      ID_1 = LocateNearestMarker({(float) mouseX, (float) mouseY});
                      state = MidPoint2;
+                     InMidpoint = true;
                 }
                 else{
                      ID_2 = LocateNearestMarker({(float) mouseX, (float) mouseY});
+
                     MidpointMarkers(ID_1, ID_2);
                     state = MidPoint1;
-
+                    PlaceID = 999;
+                    checkReady();
                 }
             }
 
@@ -647,7 +670,7 @@ Marker LocateNearestMarker(cv::Point2f clickLocation) {
             }
         }
     }
-    printf("%d\n",nearestID );
+    printf("%d\n",nearestID.ID );
     return nearestID;
 }
 
@@ -657,38 +680,44 @@ Marker MidpointMarkers(Marker MarkerA, Marker MarkerB){
     }
     else{
         std::vector<cv::Vec3d> rvecs, tvecs;
-
+               
         float x = ((MarkerA.centroid.x + MarkerB.centroid.x) / 2);
         float y = ((MarkerA.centroid.y + MarkerB.centroid.y) / 2);
+
         cv::Point2f _MidpointCentroid;
         _MidpointCentroid.x = x;
         _MidpointCentroid.y = y;
-        std::vector<std::vector<cv::Point2f>> midpointCorners;
-        std::vector<cv::Point2f> TmpCorners;
-        cv::Point2f tmp;
-        tmp.x = _MidpointCentroid.x - 10;
-        tmp.y = _MidpointCentroid.y - 10;
-        TmpCorners.push_back(tmp);
-        tmp.x = _MidpointCentroid.x - 10;
-        tmp.y = _MidpointCentroid.y + 10;
-        TmpCorners.push_back(tmp);
-        tmp.x = _MidpointCentroid.x + 10;
-        tmp.y = _MidpointCentroid.y - 10;
-        TmpCorners.push_back(tmp);
-        tmp.x = _MidpointCentroid.x + 10;
-        tmp.y = _MidpointCentroid.y + 10;
-        TmpCorners.push_back(tmp);
-        midpointCorners.push_back(TmpCorners);
-
-
-
+        
+        cv::circle( image_copy,
+         _MidpointCentroid,
+         17,
+         cv::Scalar( 255,255,0),
+         4,
+         8 );
+        
+        std::vector<std::vector<cv::Point2f>> corners;
+        corners.push_back({MarkerA.location[0], MarkerA.location[1],MarkerA.location[2], MarkerA.location[3]});
+        corners.push_back({MarkerB.location[0], MarkerB.location[1],MarkerB.location[2], MarkerB.location[3]});
         cv::aruco::estimatePoseSingleMarkers(
-                midpointCorners, actual_marker_l, camera_matrix, dist_coeffs,
-                rvecs, tvecs
-                );
-        drawCubeWireFrame(
-                image_copy, camera_matrix, dist_coeffs, rvecs, tvecs,
-                actual_marker_l, 999
-        );
+                    corners, actual_marker_l, camera_matrix, dist_coeffs,
+                    rvecs, tvecs
+            );
+        
+       
+       
+       
+        PoseStamped.header.stamp = ros::Time::now();
+        PoseStamped.header.frame_id = std::to_string(999);
+        PoseStamped.pose.orientation.w = 0;
+        PoseStamped.pose.orientation.x = (rvecs[0][0]+rvecs[1][0])/2;
+        PoseStamped.pose.orientation.y = (rvecs[0][1]+rvecs[1][1])/2;
+        PoseStamped.pose.orientation.z = (rvecs[0][2]+rvecs[1][2])/2;
+        PoseStamped.pose.position.x = (tvecs[0][0]+tvecs[1][0])/2;
+        PoseStamped.pose.position.y = (tvecs[0][1]+tvecs[1][1])/2;
+        PoseStamped.pose.position.z = (tvecs[0][2]+tvecs[1][2])/2;
+                    
+        MarkerPosePublisher.publish(PoseStamped);
+
+
     }
 }
