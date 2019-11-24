@@ -19,7 +19,7 @@
 #define CONFIRMATION 50
 #define MAXCLICKERROR 10000
 #define PI 3.14159265
-
+#define WINDOW1_NAME "Fail"
 //Marker Data Struct definition
 typedef struct Marker{
     int ID;
@@ -47,6 +47,8 @@ void initialisePublishers();
 void initialiseSubscribers();
 void checkReady();
 Marker MidpointMarkers(Marker MarkerA, Marker MarkerB);
+void FailWindow(const cv::String& name);
+
 //GLOBAL VARIABLES
 
 //Marker vectors
@@ -54,23 +56,25 @@ static std::vector<Marker> Markers;
 static std::vector<Marker> ConfirmedIDs;
 //CV Variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
+static cv::Mat error_frame = cv::Mat(200, 500, CV_8UC3);
 static std::string Pick = "Click 'Pick'.";
 static std::string Place = "Click 'Place'.";
 static std::string Wrong = "No marker near selection. Try clicking a different spot!";
 static std::string Picking = "Click a marker to pick up.";
 static std::string Placing = "Click a marker to place.";
-static std::string MidPoint1 = "Click The first Marker";
-static std::string MidPoint2 = "Click The second Marker";
+static std::string MidPoint1 = "Click the first Marker.";
+static std::string MidPoint2 = "Click the second Marker.";
 
-static std::string Doing = "Robot in action now";
+static std::string Doing = "Robot in action now.";
 static std::string Done = "I did it! Now click 'Pick'.";
-static std::string Ready = "Click 'Act' to make the robot do stuff.";
+static std::string Ready = "Click 'Act' to make the robot move.";
+static std::string Fail = "I didn't pick up correctly!";
 static std::string state = Pick;
 static cv::String Act = "Act";
 static std_msgs::String command;
 static geometry_msgs::Pose Offsets;
 static geometry_msgs::PoseStamped PoseStamped;
-static bool currentRobotStatus = false;
+static std::string currentRobotStatus = "Working";
 
 //Publisher state variables
 static bool AuxCameraOpen = false;
@@ -106,19 +110,31 @@ bool InMidpoint = false;
 static Marker ID_1;
 static Marker ID_2;
 
-void CurrentStatusCallback(const std_msgs::Bool::ConstPtr& Status){
-    printf("lkhsgdbgkas");
+void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
+    printf("qwertyuiopasdfghjklzxcvbnm");
     //read in data being published about whether the task is complete or on-going
     currentRobotStatus = Status->data;
 
     //checks if action was completed
     if (state == Doing){
-        if (currentRobotStatus){
+        if (currentRobotStatus == "Done"){
             state = Done;
             PickID = 2512;
             PlaceID = 7320;
             InMidpoint = false;
             printf("Done");
+        }
+        else if (currentRobotStatus == "Fail") {
+            command.data = "wait";
+            CommandPublisher.publish(command);
+            printf("Failed to pick up.");
+            state = Fail;
+            cv::namedWindow(WINDOW1_NAME);
+            cvui::watch(WINDOW1_NAME);
+
+        }
+        else if (currentRobotStatus == "Working"){
+            printf("still working.");
         }
     }
 }
@@ -152,8 +168,8 @@ int main(int argc, char *argv[])
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-    cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
-//  cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+   // cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+  cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
 //    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
@@ -169,6 +185,10 @@ int main(int argc, char *argv[])
     while (in_video.grab()&& ros::ok()){ //Loop while video exists
         //Start Image Processing
         in_video.retrieve(image);
+        if(state ==  Fail && cv::getWindowProperty(WINDOW1_NAME, cv::WND_PROP_AUTOSIZE) != -1){
+            //cvui::context(WINDOW1_NAME);
+            FailWindow(WINDOW1_NAME);
+        }
         
         cv::Point2f center((image.cols-1)/2.0, (image.rows-1)/2.0);
         //cv::Mat rot = cv::getRotationMatrix2D(center, -180, 1.0);
@@ -289,14 +309,11 @@ void drawCubeWireFrame(
             axisPoints.push_back(cv::Point3f(-half_l, half_l, l));
             axisPoints.push_back(cv::Point3f(half_l, half_l, 0));
             axisPoints.push_back(cv::Point3f(half_l, -half_l, 0));
-            axisPoints.push_back
-(cv::Point3f(-half_l, -half_l, 0));
+            axisPoints.push_back(cv::Point3f(-half_l, -half_l, 0));
             axisPoints.push_back(cv::Point3f(-half_l, half_l, 0));
 
             std::vector<cv::Point2f> imagePoints;
-            projectPoints(
-                    axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints
-            );
+            projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, imagePoints);
             cv::Scalar blue (255, 0, 0);//un-picked
             cv::Scalar yellow (0, 255, 255);//picked for pickup
             cv::Scalar teal (255, 225,0 );//picked for place
@@ -361,7 +378,8 @@ void UIButtons(){
             }
         }
         else if (Act == "Pause"){
-            command.data = "cancel";
+            command.data = "wait";
+            CommandPublisher.publish(command);
             Act = "Resume";
         }
         else if (Act == "Resume"){
@@ -407,10 +425,11 @@ void UIButtons(){
         command.data = "home";
         Act = "Act";
     }
-    if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))&&(!AuxCameraOpen)){
+    if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))){
         //launch secondary window and display camera images there
-//        StartCameraDisplay();
-//        AuxCameraOpen = true;
+        cv::namedWindow(WINDOW1_NAME);
+        cvui::watch(WINDOW1_NAME);
+        state = Fail;//        AuxCameraOpen = true;
     }
 }
 
@@ -721,4 +740,52 @@ Marker MidpointMarkers(Marker MarkerA, Marker MarkerB){
 
 
     }
+}
+
+void FailWindow(const cv::String& name) {
+    cvui::context(WINDOW1_NAME);
+    error_frame = cv::Scalar(40, 40, 40); //set UI color
+
+    cvui::printf(error_frame, 80, 50, "A failure was detected, Would you like me to try again? ", name.c_str());
+
+    // Buttons return true if they are clicked
+    if (cvui::button(error_frame, 110, 90, "Try Again")) {
+        command.data = "cancel";
+        CommandPublisher.publish(command);
+        state == Act;
+
+        cv::destroyWindow(WINDOW1_NAME);
+        cv::waitKey(1);
+        cvui::context(WINDOW_NAME);
+
+        return;
+
+
+    }
+    if (cvui::button(error_frame, 220, 90, "Cancel")) {
+        state == Pick;
+        cv::destroyWindow(WINDOW1_NAME);
+        cv::waitKey(1);
+        cvui::context(WINDOW_NAME);
+
+        return;
+
+
+    }
+
+    if (cvui::button(error_frame, 310, 90, "Continue")) {
+        state == Act;
+        cv::destroyWindow(WINDOW1_NAME);
+        cv::waitKey(1);
+        cvui::context(WINDOW_NAME);
+
+        return;
+
+
+    }
+
+    cvui::update(name);
+
+    // Show the content of this window on the screen
+    cvui::imshow(name, error_frame);
 }
