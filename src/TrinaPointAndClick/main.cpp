@@ -705,7 +705,7 @@ Marker MidpointMarkers(Marker MarkerA, Marker MarkerB){
         
        
        
-       
+       /*
         PoseStamped.header.stamp = ros::Time::now();
         PoseStamped.header.frame_id = std::to_string(999);
         PoseStamped.pose.orientation.w = 0;
@@ -715,8 +715,9 @@ Marker MidpointMarkers(Marker MarkerA, Marker MarkerB){
         PoseStamped.pose.position.x = (tvecs[0][0]+tvecs[1][0])/2;
         PoseStamped.pose.position.y = (tvecs[0][1]+tvecs[1][1])/2;
         PoseStamped.pose.position.z = (tvecs[0][2]+tvecs[1][2])/2;
-                    
         MarkerPosePublisher.publish(PoseStamped);
+        */            
+        
 
 
     }
