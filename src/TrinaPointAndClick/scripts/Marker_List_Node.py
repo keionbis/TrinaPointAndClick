@@ -46,7 +46,7 @@ class Marker_Node():
         initial_data = self.convert_transform(data)
         
         #check if marker is not in the known marker set
-        if initial_data.id_number <= 8:
+        if initial_data.id_number <= 8 or initial_data.id == 999:
         
            #loops through the list to see if the marker id provided is in the list
             for i in xrange(len(self.marker_list)):
