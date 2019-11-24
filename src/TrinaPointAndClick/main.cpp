@@ -46,9 +46,9 @@ Marker LocateNearestMarker(cv::Point2f clickLocation);
 void initialisePublishers();
 void initialiseSubscribers();
 void checkReady();
-Marker MidpointMarkers(Marker MarkerA, Marker MarkerB);
+void MidpointMarkers(Marker MarkerA, Marker MarkerB);
 void FailWindow(const cv::String& name);
-
+void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status);
 //GLOBAL VARIABLES
 
 //Marker vectors
@@ -111,8 +111,10 @@ static Marker ID_1;
 static Marker ID_2;
 
 void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
-    printf("qwertyuiopasdfghjklzxcvbnm");
+
+
     //read in data being published about whether the task is complete or on-going
+    
     currentRobotStatus = Status->data;
 
     //checks if action was completed
@@ -127,16 +129,17 @@ void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
         else if (currentRobotStatus == "Fail") {
             command.data = "wait";
             CommandPublisher.publish(command);
-            printf("Failed to pick up.");
+            printf("Failed to pick up.\n\r");
             state = Fail;
             cv::namedWindow(WINDOW1_NAME);
             cvui::watch(WINDOW1_NAME);
 
         }
         else if (currentRobotStatus == "Working"){
-            printf("still working.");
+            printf("still working.\n\r");
         }
     }
+    
 }
 
 int main(int argc, char *argv[])
@@ -148,6 +151,7 @@ int main(int argc, char *argv[])
      ID_2.ID = 7320;
     ros::init(argc, argv, "listener");
     ros::NodeHandle n;
+    ros::NodeHandle s;
     command.data= "wait";
      MarkerPosePublisher = n.advertise<geometry_msgs::PoseStamped>("MarkerPose", 1000);
      GripperSpeedPublisher = n.advertise<std_msgs::Int64>("GripperSpeed", 1000);
@@ -158,7 +162,7 @@ int main(int argc, char *argv[])
      CommandPublisher = n.advertise<std_msgs::String>("Command", 1000);
     OffsetPublisher = n.advertise<geometry_msgs::Pose>("Offsets", 1000);
 
-    currentStatusSubscriber = n.subscribe("CurrentStatus", 1, CurrentStatusCallback);
+    currentStatusSubscriber = s.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
 
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
@@ -168,8 +172,8 @@ int main(int argc, char *argv[])
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
 
-   // cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
-  cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+    cv::FileStorage fs("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
+//  cv::FileStorage fs("../../../src/TrinaPointAndClick/calibration_params.yml", cv::FileStorage::READ); //hard coded calibration file
 //    cv::FileStorage fs(argv[2], cv::FileStorage::READ); //parameter passes calibration file
 
     fs["camera_matrix"] >> camera_matrix;
@@ -183,6 +187,7 @@ int main(int argc, char *argv[])
 
 
     while (in_video.grab()&& ros::ok()){ //Loop while video exists
+    ros::spinOnce();
         //Start Image Processing
         in_video.retrieve(image);
         if(state ==  Fail && cv::getWindowProperty(WINDOW1_NAME, cv::WND_PROP_AUTOSIZE) != -1){
@@ -400,7 +405,7 @@ void UIButtons(){
         Act = "Act";
         PickID = 2512;
         PlaceID = 7320;
-        currentRobotStatus = false;
+        currentRobotStatus = "Working";
         InMidpoint = false;
         ID_1.ID = 7320;
         ID_2.ID = 7320;
@@ -601,7 +606,7 @@ void CheckMouse(){
                 else{
                      ID_2 = LocateNearestMarker({(float) mouseX, (float) mouseY});
 
-                    MidpointMarkers(ID_1, ID_2);
+
                     state = MidPoint1;
                     PlaceID = 999;
                     checkReady();
@@ -693,7 +698,7 @@ Marker LocateNearestMarker(cv::Point2f clickLocation) {
     return nearestID;
 }
 
-Marker MidpointMarkers(Marker MarkerA, Marker MarkerB){
+void MidpointMarkers(Marker MarkerA, Marker MarkerB){
     if(MarkerA.centroid.x == MarkerB.centroid.x || MarkerA.centroid.y == MarkerB.centroid.y){
 
     }
@@ -722,9 +727,7 @@ Marker MidpointMarkers(Marker MarkerA, Marker MarkerB){
                     rvecs, tvecs
             );
         
-       
-       
-       /*
+      
         PoseStamped.header.stamp = ros::Time::now();
         PoseStamped.header.frame_id = std::to_string(999);
         PoseStamped.pose.orientation.w = 0;
@@ -735,10 +738,7 @@ Marker MidpointMarkers(Marker MarkerA, Marker MarkerB){
         PoseStamped.pose.position.y = (tvecs[0][1]+tvecs[1][1])/2;
         PoseStamped.pose.position.z = (tvecs[0][2]+tvecs[1][2])/2;
         MarkerPosePublisher.publish(PoseStamped);
-        */            
-        
-
-
+                   
     }
 }
 
@@ -752,6 +752,8 @@ void FailWindow(const cv::String& name) {
     if (cvui::button(error_frame, 110, 90, "Try Again")) {
         command.data = "cancel";
         CommandPublisher.publish(command);
+        command.data = "act";
+        CommandPublisher.publish(command);
         state == Act;
 
         cv::destroyWindow(WINDOW1_NAME);
@@ -763,6 +765,8 @@ void FailWindow(const cv::String& name) {
 
     }
     if (cvui::button(error_frame, 220, 90, "Cancel")) {
+        command.data = "cancel";
+        CommandPublisher.publish(command);
         state == Pick;
         cv::destroyWindow(WINDOW1_NAME);
         cv::waitKey(1);
@@ -774,6 +778,8 @@ void FailWindow(const cv::String& name) {
     }
 
     if (cvui::button(error_frame, 310, 90, "Continue")) {
+        command.data = "act";
+        CommandPublisher.publish(command);
         state == Act;
         cv::destroyWindow(WINDOW1_NAME);
         cv::waitKey(1);
