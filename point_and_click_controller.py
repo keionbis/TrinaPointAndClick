@@ -49,6 +49,10 @@ left_pose = None
 z_height = 999
 got_to_waypoint = False
 command = ""
+lastCommand = ""
+savedx = 0.0
+savedy = 0.0
+savedz = 0.0
 offsetx = 0.0
 offsety = 0.0
 offsetz = 0.0
@@ -66,6 +70,7 @@ prevzpick = 0
 doneTimer = 0
 gripperSpeed = 0.0
 ICanceled = False
+zwaypoint = 0.0
 
 # Import Modules
 import os
@@ -310,13 +315,14 @@ class MarkerTaskGenerator(TaskGenerator):
         global HoldPose
         global pickLimb
         global xb, yb, zb
+        global savedx, savedy, savedz
         global holdingObj
         global hasMoved
         global grabbing
         global grabAmount
         global left_pose
         global got_to_waypoint
-        global command
+        global command, lastCommand
         global pickId, placeId
         global offsetx, offsety, offsetz
         global placing
@@ -327,6 +333,7 @@ class MarkerTaskGenerator(TaskGenerator):
         global doneTimer
         global gripperSpeed
         global ICanceled
+        global zwaypoint
         
         if ICanceled:
             print "CANCEL WAS HIT!"
@@ -387,7 +394,33 @@ class MarkerTaskGenerator(TaskGenerator):
             self.pub_state.publish("Done")
         else:
             TuckStatus[self.limb] = False
-            if command == "act":
+            
+            if command == "live":
+                print "Doing live adjustments"
+                rotxy = np.matmul(rotx, roty)
+                rotxyz = np.matmul(rotxy, rotz)
+                if not lastCommand == "live":
+                    print "SAVING X Y and Z"
+                    savedx = hand[0]
+                    savedy = hand[1]
+                    savedz = hand[2]
+                print savedx
+                print savedy
+                print savedz
+                pos_msg = {"type": "CartesianPose",
+                           "limb": "left",
+                           "position": [savedx + offsetx, savedy + offsety, savedz + offsetz],
+                           "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
+                           # "rotation":[1,0,0,0,1,0,0,0,1],
+                           # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
+                           # "rotation":[1,0,0,0,0,-1,0,1,0],   #90 deg rotation about x axis
+                           # "rotation":[0,0,1,0,1,0,-1,0,0],   #90 deg rotation about y axis
+                           "speed": 1,
+                           "maxJointDeviation": 0.5,
+                           "safe": 0}
+                print(pos_msg)
+                return pos_msg
+            elif command == "act":
                 xpick = state['markers'][pickId].transform.translation.x
                 ypick = state['markers'][pickId].transform.translation.y
                 zpick = state['markers'][pickId].transform.translation.z
@@ -400,16 +433,19 @@ class MarkerTaskGenerator(TaskGenerator):
                 rotxy = np.matmul(rotx, roty)
                 rotxyz = np.matmul(rotxy, rotz)
                 
-                zwaypoint = 0.
                 print grabbing
                 
                 if ascend:
                     print "ASCEND"
-                    zwaypoint = 0.30
+                    if placing and zwaypoint <=0.0:
+                        zwaypoint = 0.1
+                    else:
+                        zwaypoint = 0.30
                 
                 if deathFromAbove:
                     print "DEATH FROM ABOVE!"
-                    zwaypoint = 0.30
+                    if zwaypoint <= 0.0:
+                        zwaypoint = 0.30
                 
                 if placing:
                     #place
@@ -443,16 +479,24 @@ class MarkerTaskGenerator(TaskGenerator):
                         print(dist)
                         if dist < 0.025:
                             if deathFromAbove:
-                                deathFromAbove = False
-                            elif ascend:
-                                if doneTimer < 30:
-                                    self.pub_state.publish("Done")
-                                    doneTimer = doneTimer + 1
+                                if zwaypoint <= 0.1:
+                                    zwaypoint = 0.0
+                                    deathFromAbove = False
                                 else:
-                                    doneTimer = 0
-                                    ascend = False
-                                    placing = False
-                                    ICanceled = False
+                                    zwaypoint = zwaypoint - 0.1
+                            elif ascend:
+                                if zwaypoint < 0.3:
+                                    zwaypoint = zwaypoint + 0.1
+                                else:
+                                    zwaypoint = 0.3
+                                    if doneTimer < 30:
+                                        self.pub_state.publish("Done")
+                                        doneTimer = doneTimer + 1
+                                    else:
+                                        doneTimer = 0
+                                        ascend = False
+                                        placing = False
+                                        ICanceled = False
                             else:
                                 got_to_waypoint = True
                         return pos_msg
@@ -469,7 +513,7 @@ class MarkerTaskGenerator(TaskGenerator):
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
                                    "position": [xpick + offsetx + .1325, ypick + offsety + .075,
-                                                prevzpick + zcalcpick + offsetz + zwaypoint + .11],
+                                                prevzpick + zcalcpick + offsetz + zwaypoint + .1 ],
                                    "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
                                    # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
@@ -480,15 +524,15 @@ class MarkerTaskGenerator(TaskGenerator):
                                    "safe": 0}
                         print(pos_msg)
                         if zpick-prevzpick >= 0.2:
-                            print("ZChange: "+ (zpick-prevzpick))
+                            print("ZChange: " + str(zpick-prevzpick))
                             placing = True
                             ascend = False
                             deathFromAbove = True
                         
-                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .0825) + np.square(hand[1] - ypick - offsety - .19) + np.square(hand[2] - prevzpick - offsetz - zwaypoint + .83))
+                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .0825) + np.square(hand[1] - ypick - offsety - .19) + np.square(hand[2] - prevzpick - offsetz - zwaypoint + .84))
                         print(hand[0] - xpick - offsetx - .0825)
                         print(hand[1] - ypick - offsety - .19)
-                        print(hand[2] - prevzpick - offsetz - zwaypoint + .83)
+                        print(hand[2] - prevzpick - offsetz - zwaypoint + .84)
                         print(dist)
                         
                         if dist < 0.025:
@@ -504,7 +548,7 @@ class MarkerTaskGenerator(TaskGenerator):
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
                                    "position": [xpick + offsetx + .1325, ypick + offsety + .075,
-                                                prevzpick + zcalcpick + offsetz + zwaypoint + .11],
+                                                prevzpick + zcalcpick + offsetz + zwaypoint + .1],
                                    "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
                                    # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
@@ -516,10 +560,10 @@ class MarkerTaskGenerator(TaskGenerator):
                         print(pos_msg)
                         print "picking up cup"
                         print(marker.id_number)
-                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .0825) + np.square(hand[1] - ypick - offsety - .19) + np.square(hand[2] - prevzpick - offsetz - zwaypoint + .83))
+                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .0825) + np.square(hand[1] - ypick - offsety - .19) + np.square(hand[2] - prevzpick - offsetz - zwaypoint + .84))
                         print(hand[0] - xpick - offsetx - .0825)
                         print(hand[1] - ypick - offsety - .19)
-                        print(hand[2] - zpick - offsetz - zwaypoint + .83)
+                        print(hand[2] - zpick - offsetz - zwaypoint + .84)
                         print(dist)
                         want = np.array([[rotxyz[2,0],rotxyz[2,1],rotxyz[2,2]],[-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2]],[-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]]])
                         print rotationMatrixToEulerAngles(want)
@@ -528,7 +572,11 @@ class MarkerTaskGenerator(TaskGenerator):
                         if dist < 0.025:
                             if checkRotation(want, hand_rot):
                                 if deathFromAbove:
-                                    deathFromAbove = False
+                                    if zwaypoint <= 0.1:
+                                        zwaypoint = 0.0
+                                        deathFromAbove = False
+                                    else:
+                                        zwaypoint = zwaypoint - 0.1
                                 else:
                                     got_to_waypoint = True
                             else:
@@ -763,9 +811,9 @@ def callback_place(data):
 
 
 def callback_command(data):
-    global command
+    global command, lastCommand
+    lastCommand = command
     command = data.data
-    print(command)
 
 
 def callback_offsets(data):

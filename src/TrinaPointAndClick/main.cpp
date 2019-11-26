@@ -59,7 +59,8 @@ static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
 static cv::Mat error_frame = cv::Mat(200, 500, CV_8UC3);
 static std::string Pick = "Click 'Pick'.";
 static std::string Place = "Click 'Place'.";
-static std::string Wrong = "No marker near selection. Try clicking a different spot!";
+static std::string Wrong = "No marker near selection , try a different spot!";
+static std::string WrongLow = "You can't pick that up, try a different marker!";
 static std::string Picking = "Click a marker to pick up.";
 static std::string Placing = "Click a marker to place.";
 static std::string MidPoint1 = "Click the first Marker.";
@@ -69,7 +70,7 @@ static std::string Doing = "Robot in action now.";
 static std::string Done = "I did it! Now click 'Pick'.";
 static std::string Ready = "Click 'Act' to make the robot move.";
 static std::string Fail = "I didn't pick up correctly!";
-static std::string Live = "Move by adjusting offsets, resume with any other button.";
+static std::string Live = "Move arm by adjusting the offsets.";
 static std::string state = Pick;
 static std::string PrevState = state;
 static cv::String Act = "Act";
@@ -113,6 +114,7 @@ bool InMidpoint = false;
 static Marker ID_1;
 static Marker ID_2;
 
+
 void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
 
 
@@ -126,6 +128,8 @@ void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
             state = Done;
             PickID = 2512;
             PlaceID = 7320;
+            ID_1.ID = 7320;            
+            ID_2.ID = 7320;
             Act = "Act";
             PlaceBtn = "Place On";
             command.data = "cancel";
@@ -173,7 +177,7 @@ int main(int argc, char *argv[])
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
 
-    in_video.open(0);//Camera index should be a passed parameter
+    in_video.open(3);//Camera index should be a passed parameter
 
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
@@ -287,6 +291,7 @@ int main(int argc, char *argv[])
         // Show everything on the screen
         cvui::update();
         cv::imshow(WINDOW_NAME, frame);
+
 
         // Check if ESC key was pressed
             if (cv::waitKey(20) == 27|| cv::getWindowProperty(WINDOW_NAME, cv::WND_PROP_ASPECT_RATIO) < 0) {
@@ -413,6 +418,7 @@ void UIButtons(){
         Act = "Act";
         PlaceBtn = "Place On";
         command.data = "cancel";
+        checkReady();
     }
 
     if (cvui::button(frame, 500, 550,120,40 ,  "Reset")) {
@@ -441,21 +447,14 @@ void UIButtons(){
         CloseSpeedPercent = 50;
         command.data = "cancel";
     }
-    if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
+    if (cvui::button(frame, 650, 550,120,40 , "Home")) {
         LiveOffsets = false;
         PrevLiveOffsets = false;
         //tell robot to go to its neutral pose
         command.data = "home";
         Act = "Act";
     }
-    if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))){
-        LiveOffsets = false;
-        PrevLiveOffsets = false;
-        //launch secondary window and display camera images there
-        cv::namedWindow(WINDOW1_NAME);
-        cvui::watch(WINDOW1_NAME);
-        state = Fail;//        AuxCameraOpen = true;
-    }
+
 }
 
 
@@ -508,9 +507,15 @@ void OffsetsWindow(){
         
         if (command.data == "wait" | command.data == "cancel" | command.data == "home" | command.data == "live"){
             if(cvui::checkbox("Live adjustments", &LiveOffsets, 0xffffff)){
+                if (!PrevLiveOffsets){
+                    PrevState = state;
+                    sleep(1);
+                    command.data = "live";
+                    CommandPublisher.publish(command);  
+                    sleep(1);
+                }                
                 ApplyOffsets = false;
                 PrevLiveOffsets = true;
-                PrevState = state;
                 state = Live;
                 Offsets.position.x = double(XOffset)/1000;
                 Offsets.position.y = double(YOffset)/1000;
@@ -624,6 +629,8 @@ void CheckMouse(){
 
                 if (ID == PlaceID) {
                     state = Wrong;
+                } else if (ID < 3) {
+                    state = WrongLow;
                 } else {
                     PickID = ID;
                     state = Picking;
