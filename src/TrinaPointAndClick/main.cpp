@@ -69,7 +69,9 @@ static std::string Doing = "Robot in action now.";
 static std::string Done = "I did it! Now click 'Pick'.";
 static std::string Ready = "Click 'Act' to make the robot move.";
 static std::string Fail = "I didn't pick up correctly!";
+static std::string Live = "Move by adjusting offsets, resume with any other button.";
 static std::string state = Pick;
+static std::string PrevState = state;
 static cv::String Act = "Act";
 static std_msgs::String command;
 static geometry_msgs::Pose Offsets;
@@ -80,12 +82,13 @@ static std::string currentRobotStatus = "Working";
 static bool AuxCameraOpen = false;
 static bool ApplyOffsets = false;
 static bool LiveOffsets = false;
+static bool PrevLiveOffsets = false;
 static bool GripperOpen = false;
 //offset and gripper variables
 static int XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
 static int RollOffset = 0, PitchOffset = 0, YawOffset = 0; //in degrees
 static cv::String GripperState = "Open Gripper";
-static int ClosePercent = 95, CloseSpeedPercent = 20; //Gripper data
+static int ClosePercent = 95, CloseSpeedPercent = 50; //Gripper data
 
 static Marker tmpData;
 static int PickID = 2512;
@@ -123,6 +126,9 @@ void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
             state = Done;
             PickID = 2512;
             PlaceID = 7320;
+            Act = "Act";
+            PlaceBtn = "Place On";
+            command.data = "cancel";
             InMidpoint = false;
             printf("Done");
         }
@@ -159,10 +165,10 @@ int main(int argc, char *argv[])
      GripperStatePublisher = n.advertise<std_msgs::String>("GripperState", 1000);
      PickIDPublisher = n.advertise<std_msgs::Int64>("PickID", 1000);
      PlaceIDPublisher = n.advertise<std_msgs::Int64>("PlaceID", 1000);
-     CommandPublisher = n.advertise<std_msgs::String>("Command", 1000);
+     CommandPublisher = n.advertise<std_msgs::String>("Command", 1);
     OffsetPublisher = n.advertise<geometry_msgs::Pose>("Offsets", 1000);
 
-    currentStatusSubscriber = s.subscribe("CurrentStatus", 1000, CurrentStatusCallback);
+    currentStatusSubscriber = s.subscribe("CurrentStatus", 1, CurrentStatusCallback);
 
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
@@ -356,10 +362,14 @@ void drawCubeWireFrame(
 
 void UIButtons(){
     if (cvui::button(frame, 30, 80,120,40 ,  "Pick")) {
+        LiveOffsets = false;
+        PrevLiveOffsets = false;
         state = Picking;
     }
 
     if (cvui::button(frame, 180, 80,120,40 , PlaceBtn)) {
+        LiveOffsets = false;
+        PrevLiveOffsets = false;
         if(PlaceBtn == "Place On") {
             state = Placing;
             InMidpoint = false;
@@ -374,6 +384,8 @@ void UIButtons(){
     }
 
     if (cvui::button(frame, 500, 500,120,40 , Act)) {
+        LiveOffsets = false;
+        PrevLiveOffsets = false;
         //stop publishers running
         if (Act == "Act"){
             if (state == Ready){
@@ -395,8 +407,11 @@ void UIButtons(){
     }
     if (cvui::button(frame, 650, 500,120,40 , "Cancel")) {
         //stop publishers running
+        LiveOffsets = false;
+        PrevLiveOffsets = false;
         state = Pick;
         Act = "Act";
+        PlaceBtn = "Place On";
         command.data = "cancel";
     }
 
@@ -414,6 +429,7 @@ void UIButtons(){
         AuxCameraOpen = false;
         ApplyOffsets = false;
         LiveOffsets = false;
+        PrevLiveOffsets = false;
         GripperOpen = false;
 
         //offset and gripper variables
@@ -422,15 +438,19 @@ void UIButtons(){
         GripperState = "Open Gripper";
         //Gripper data
         ClosePercent = 95;
-        CloseSpeedPercent = 20;
+        CloseSpeedPercent = 50;
         command.data = "cancel";
     }
     if (cvui::button(frame, 650, 550,120,40 , "&Home")) {
+        LiveOffsets = false;
+        PrevLiveOffsets = false;
         //tell robot to go to its neutral pose
         command.data = "home";
         Act = "Act";
     }
     if ((cvui::button(frame, 850, 550, 150, 40,"&Auxiliary Camera"))){
+        LiveOffsets = false;
+        PrevLiveOffsets = false;
         //launch secondary window and display camera images there
         cv::namedWindow(WINDOW1_NAME);
         cvui::watch(WINDOW1_NAME);
@@ -449,7 +469,17 @@ void OffsetsWindow(){
     //position
     cvui::beginColumn(frame, 40, 200, 145, 160,10);
 
-        cvui::checkbox("Apply offsets", &ApplyOffsets, 0xffffff);
+        if(cvui::checkbox("Apply offsets", &ApplyOffsets, 0xffffff)){
+            PrevLiveOffsets = false;
+            LiveOffsets = false;
+            Offsets.position.x = double(XOffset)/1000;
+            Offsets.position.y = double(YOffset)/1000;
+            Offsets.position.z = double(ZOffset)/1000;
+            Offsets.orientation.x = double(RollOffset)*(PI/180);
+            Offsets.orientation.y = double(PitchOffset)*(PI/180);
+            Offsets.orientation.z = double(YawOffset)*(PI/180);
+        }
+        
         cvui::space(5);
         cvui::text("Position (mm):", 0.4, 0xffffff);
 
@@ -475,24 +505,42 @@ void OffsetsWindow(){
 
     //orientation
     cvui::beginColumn(frame, 200, 200, 145, 160,10);
-
-        if(cvui::checkbox("Live adjustments", &LiveOffsets, 0xffffff) && ApplyOffsets){
-            Offsets.position.x = double(XOffset)/1000;
-            Offsets.position.y = double(YOffset)/1000;
-            Offsets.position.z = double(ZOffset)/1000;
-            Offsets.orientation.x = double(RollOffset)*(PI/180);
-            Offsets.orientation.y = double(PitchOffset)*(PI/180);
-            Offsets.orientation.z = double(YawOffset)*(PI/180);
+        
+        if (command.data == "wait" | command.data == "cancel" | command.data == "home" | command.data == "live"){
+            if(cvui::checkbox("Live adjustments", &LiveOffsets, 0xffffff)){
+                ApplyOffsets = false;
+                PrevLiveOffsets = true;
+                PrevState = state;
+                state = Live;
+                Offsets.position.x = double(XOffset)/1000;
+                Offsets.position.y = double(YOffset)/1000;
+                Offsets.position.z = double(ZOffset)/1000;
+                Offsets.orientation.x = double(RollOffset)*(PI/180);
+                Offsets.orientation.y = double(PitchOffset)*(PI/180);
+                Offsets.orientation.z = double(YawOffset)*(PI/180);
+                command.data = "live";
+                CommandPublisher.publish(command);  
+            }
         }
         else{
+            cvui::space(15);
+        }
+                
+        if (PrevLiveOffsets && !LiveOffsets){
+            command.data = "wait";
+            CommandPublisher.publish(command);
+            state = PrevState;
+        }
+                
+        if (!LiveOffsets && !ApplyOffsets){
             Offsets.position.x = 0;
             Offsets.position.y = 0;
             Offsets.position.z = 0;
             Offsets.orientation.x = 0;
             Offsets.orientation.y = 0;
             Offsets.orientation.z = 0;
-
         }
+        
         cvui::space(5);
         cvui::text("Rotation (deg):", 0.4, 0xffffff);
 
@@ -747,14 +795,18 @@ void FailWindow(const cv::String& name) {
     error_frame = cv::Scalar(40, 40, 40); //set UI color
 
     cvui::printf(error_frame, 80, 50, "A failure was detected, Would you like me to try again? ", name.c_str());
-
+    printf("FailureMode\n\r");
     // Buttons return true if they are clicked
     if (cvui::button(error_frame, 110, 90, "Try Again")) {
+        
         command.data = "cancel";
         CommandPublisher.publish(command);
+        sleep(1);
+        
+        state = Doing;
         command.data = "act";
+        Act = "Pause";
         CommandPublisher.publish(command);
-        state == Act;
 
         cv::destroyWindow(WINDOW1_NAME);
         cv::waitKey(1);
@@ -767,7 +819,8 @@ void FailWindow(const cv::String& name) {
     if (cvui::button(error_frame, 220, 90, "Cancel")) {
         command.data = "cancel";
         CommandPublisher.publish(command);
-        state == Pick;
+        state = Pick;
+        Act = "Act";
         cv::destroyWindow(WINDOW1_NAME);
         cv::waitKey(1);
         cvui::context(WINDOW_NAME);
@@ -778,9 +831,10 @@ void FailWindow(const cv::String& name) {
     }
 
     if (cvui::button(error_frame, 310, 90, "Continue")) {
+        state = Doing;
         command.data = "act";
+        Act = "Pause";
         CommandPublisher.publish(command);
-        state == Act;
         cv::destroyWindow(WINDOW1_NAME);
         cv::waitKey(1);
         cvui::context(WINDOW_NAME);

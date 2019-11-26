@@ -61,6 +61,11 @@ hand_rot = None
 deathFromAbove = True
 maxGripPercent = 90
 grabInterrupt = "close"
+ascend = False
+prevzpick = 0
+doneTimer = 0
+gripperSpeed = 0.0
+ICanceled = False
 
 # Import Modules
 import os
@@ -183,7 +188,7 @@ class MarkerTaskGenerator(TaskGenerator):
         # rospy.Subscriber('/robot/limb/left/endpoint_state/pose', Pose, callback_pose)
         self.pub_l = rospy.Publisher('/left/UbirosGentle', Int8, queue_size=1)
         self.pub_r = rospy.Publisher('/right/UbirosGentle', Int8, queue_size=1)
-        self.pub_state = rospy.Publisher('/CurrentStatus', Bool, queue_size=1)
+        self.pub_state = rospy.Publisher('/CurrentStatus', String, queue_size=1)
 
     def callback_pose(self, data):
         global hand
@@ -317,6 +322,15 @@ class MarkerTaskGenerator(TaskGenerator):
         global placing
         global deathFromAbove
         global maxGripPercent
+        global ascend
+        global prevzpick
+        global doneTimer
+        global gripperSpeed
+        global ICanceled
+        
+        if ICanceled:
+            print "CANCEL WAS HIT!"
+            print "AT SOME POINT, TRINA SHOULD HAVE STOPPED"
 
         # get robot state data
         self.getRobotStatus()
@@ -330,15 +344,17 @@ class MarkerTaskGenerator(TaskGenerator):
         # self.gamepad_csv.writerow(robot_state)
         # rstick = state['rstick']
         # lstick = state['lstick']
-
+        
+        if gripperSpeed == 0:
+            gripperSpeed = 5;
+        
         if grabbing:
-            # print "What the fuck you piece of shit!?"
             if grabAmount < maxGripPercent:
-                grabAmount = grabAmount + 0.3
+                grabAmount = grabAmount + 0.3*gripperSpeed/50
         else:
             print grabAmount
             if grabAmount > 0:
-                grabAmount = grabAmount - 0.3
+                grabAmount = grabAmount - 0.3*gripperSpeed/50
 
         gripPercent = grabAmount
 
@@ -347,10 +363,28 @@ class MarkerTaskGenerator(TaskGenerator):
             self.pub_r.publish(gripPercent)
         else:
             self.pub_l.publish(gripPercent)
+            
+        if command == "cancel":
+            print "I RECEIVED CANCEL"
+            ICanceled = True
+            doneTimer = 0
+            grabbing = False
+            deathFromAbove = True
+            ascend = False
+            got_to_waypoint = False
+            placing = False
+            grabAmount = 0
+            print "THE CANCEL IS STILL HAPPENING"
+            print "THE GRIPPER SHOULD HAVE OPENED"
 
         if command == "home":
+            doneTimer = 0
             TuckStatus[self.limb] = True
-            self.pub_state.publish(False)
+            deathFromAbove = True
+            ascend = False
+            got_to_waypoint = False
+            placing = False
+            self.pub_state.publish("Done")
         else:
             TuckStatus[self.limb] = False
             if command == "act":
@@ -368,6 +402,11 @@ class MarkerTaskGenerator(TaskGenerator):
                 
                 zwaypoint = 0.
                 print grabbing
+                
+                if ascend:
+                    print "ASCEND"
+                    zwaypoint = 0.30
+                
                 if deathFromAbove:
                     print "DEATH FROM ABOVE!"
                     zwaypoint = 0.30
@@ -376,18 +415,16 @@ class MarkerTaskGenerator(TaskGenerator):
                     #place
                     if got_to_waypoint:
                         grabbing = False
-                        self.pub_state.publish(True)
-                        if grabAmount == 0:
-                            placing = False
+                        if grabAmount <= 0:
                             got_to_waypoint = False
-                            deathFromAbove = True
+                            ascend = True
                     else:
-                        self.pub_state.publish(False)
+                        self.pub_state.publish("Working")
                         marker = state['markers'][placeId]
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
-                                   "position": [xplace + offsetx + .11, yplace + offsety + .085,
-                                                zplace + zcalcplace + offsetz + zwaypoint + 0.24],
+                                   "position": [xplace + offsetx + .13, yplace + offsety + .083,
+                                                zplace + zcalcplace + offsetz + zwaypoint + 0.26],
                                    "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
                                    # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
@@ -399,33 +436,75 @@ class MarkerTaskGenerator(TaskGenerator):
                         print(pos_msg)
                         print "Placing cup"
                         print(marker.id_number)
-                        dist = np.sqrt(np.square(hand[0] - xplace - offsetx - .06) + np.square(hand[1] - yplace - offsety - .205) + np.square(hand[2] - zplace - offsetz - zwaypoint + .71))
-                        print(hand[0] - xplace - offsetx - .035)
-                        print(hand[1] - yplace - offsety - .235)
-                        print(hand[2] - zplace - offsetz - zwaypoint + .75)
+                        dist = np.sqrt(np.square(hand[0] - xplace - offsetx - .08) + np.square(hand[1] - yplace - offsety - .185) + np.square(hand[2] - zplace - offsetz - zwaypoint + .69))
+                        print(hand[0] - xplace - offsetx - .08)
+                        print(hand[1] - yplace - offsety - .185)
+                        print(hand[2] - zplace - offsetz - zwaypoint + .69)
                         print(dist)
                         if dist < 0.025:
                             if deathFromAbove:
                                 deathFromAbove = False
+                            elif ascend:
+                                if doneTimer < 30:
+                                    self.pub_state.publish("Done")
+                                    doneTimer = doneTimer + 1
+                                else:
+                                    doneTimer = 0
+                                    ascend = False
+                                    placing = False
+                                    ICanceled = False
                             else:
                                 got_to_waypoint = True
                         return pos_msg
                 else:
                     # pick up cup
                     if got_to_waypoint:
-                        self.pub_state.publish(False)
+                        self.pub_state.publish("Working")
                         grabbing = True
                         if grabAmount >= maxGripPercent:
-                            placing = True
                             got_to_waypoint = False
+                            prevzpick = zpick
+                            ascend = True
+                    elif ascend:
+                        pos_msg = {"type": "CartesianPose",
+                                   "limb": "left",
+                                   "position": [xpick + offsetx + .1325, ypick + offsety + .075,
+                                                prevzpick + zcalcpick + offsetz + zwaypoint + .11],
+                                   "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
+                                   # "rotation":[1,0,0,0,1,0,0,0,1],
+                                   # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
+                                   # "rotation":[1,0,0,0,0,-1,0,1,0],   #90 deg rotation about x axis
+                                   # "rotation":[0,0,1,0,1,0,-1,0,0],   #90 deg rotation about y axis
+                                   "speed": 1,
+                                   "maxJointDeviation": 0.5,
+                                   "safe": 0}
+                        print(pos_msg)
+                        if zpick-prevzpick >= 0.2:
+                            print("ZChange: "+ (zpick-prevzpick))
+                            placing = True
+                            ascend = False
                             deathFromAbove = True
+                        
+                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .0825) + np.square(hand[1] - ypick - offsety - .19) + np.square(hand[2] - prevzpick - offsetz - zwaypoint + .83))
+                        print(hand[0] - xpick - offsetx - .0825)
+                        print(hand[1] - ypick - offsety - .19)
+                        print(hand[2] - prevzpick - offsetz - zwaypoint + .83)
+                        print(dist)
+                        
+                        if dist < 0.025:
+                            print "I am a failure"
+                            self.pub_state.publish("Fail")
+                            placing = True
+                            ascend = False
+                            deathFromAbove = True
+                        return pos_msg
                     else:
-                        self.pub_state.publish(False)
+                        self.pub_state.publish("Working")
                         marker = state['markers'][pickId]
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
-                                   "position": [xpick + offsetx + .1275, ypick + offsety + .1,
-                                                zpick + zcalcpick + offsetz + zwaypoint + .07],
+                                   "position": [xpick + offsetx + .1325, ypick + offsety + .075,
+                                                prevzpick + zcalcpick + offsetz + zwaypoint + .11],
                                    "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
                                    # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis
@@ -437,10 +516,10 @@ class MarkerTaskGenerator(TaskGenerator):
                         print(pos_msg)
                         print "picking up cup"
                         print(marker.id_number)
-                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .0775) + np.square(hand[1] - ypick - offsety - .22) + np.square(hand[2] - zpick - offsetz - zwaypoint + .88))
-                        print(hand[0] - xpick - offsetx - .0775)
-                        print(hand[1] - ypick - offsety - .22)
-                        print(hand[2] - zpick - offsetz - zwaypoint + .88)
+                        dist = np.sqrt(np.square(hand[0] - xpick - offsetx - .0825) + np.square(hand[1] - ypick - offsety - .19) + np.square(hand[2] - prevzpick - offsetz - zwaypoint + .83))
+                        print(hand[0] - xpick - offsetx - .0825)
+                        print(hand[1] - ypick - offsety - .19)
+                        print(hand[2] - zpick - offsetz - zwaypoint + .83)
                         print(dist)
                         want = np.array([[rotxyz[2,0],rotxyz[2,1],rotxyz[2,2]],[-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2]],[-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]]])
                         print rotationMatrixToEulerAngles(want)
@@ -455,12 +534,6 @@ class MarkerTaskGenerator(TaskGenerator):
                             else:
                                 print "Keep rotating, you idiot"
                         return pos_msg
-            else:
-                 if command == "cancel":
-                    grabbing = False
-                    deathFromAbove = True
-                    got_to_waypoint = False
-                    placing = False
                         
         if TuckStatus[self.limb]:
             Jointmsg = {}
@@ -536,6 +609,7 @@ class MarkerTaskGenerator(TaskGenerator):
             if pickLimb == "right":
                 if xb != None and yb != None and zb != None:
                     print(2)
+                 
                     pos_msg = {"type": "CartesianPose",
                                # "limb":"right", "position":[xb+0.1,yb-0.15,zb+1.25],
                                "limb": "right", "position": [xb, yb, zb],
@@ -691,6 +765,7 @@ def callback_place(data):
 def callback_command(data):
     global command
     command = data.data
+    print(command)
 
 
 def callback_offsets(data):
@@ -707,8 +782,8 @@ def callback_offsets(data):
 
 
 def callback_speed(data):
-    # hello
-    return
+    global gripperSpeed
+    gripperSpeed = data.data
 
 def callback_percent(data):
     # percent
