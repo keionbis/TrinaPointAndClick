@@ -57,19 +57,22 @@ static std::vector<Marker> ConfirmedIDs;
 //CV Variables
 static cv::Mat frame = cv::Mat(600, 1024, CV_8UC3);
 static cv::Mat error_frame = cv::Mat(200, 500, CV_8UC3);
-static std::string Pick = "Click 'Pick'.";
-static std::string Place = "Click 'Place'.";
-static std::string Wrong = "No marker near selection , try a different spot!";
-static std::string WrongLow = "You can't pick that up, try a different marker!";
+
+static std::string Pick = "Click the 'Pick' button.";
+static std::string Place = "Click the 'Place On' button.";
+static std::string WrongPick = "No marker nearby, try again!";
+static std::string Wrong = "No marker nearby, try again!";
+static std::string WrongPlace = "No marker nearby, try again!";
+static std::string WrongLow = "You can't pick that up, try again!";
 static std::string Picking = "Click a marker to pick up.";
 static std::string Placing = "Click a marker to place.";
 static std::string MidPoint1 = "Click the first Marker.";
 static std::string MidPoint2 = "Click the second Marker.";
 
 static std::string Doing = "Robot in action now.";
-static std::string Done = "I did it! Now click 'Pick'.";
-static std::string Ready = "Click 'Act' to make the robot move.";
-static std::string Fail = "I didn't pick up correctly!";
+static std::string Done = "I did it! Now click the 'Pick' button.";
+static std::string Ready = "Click the 'Act' button when ready.";
+static std::string Fail = "Check the pop-up window!";
 static std::string Live = "Move arm by adjusting the offsets.";
 static std::string state = Pick;
 static std::string PrevState = state;
@@ -157,6 +160,7 @@ int main(int argc, char *argv[])
     int wait_time = 10;
     cv::Mat image;
     std::ostringstream vector_to_marker;
+    cv::Mat coordinateFrame = cv::imread("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/frame.png", cv::IMREAD_COLOR);
      ID_1.ID = 7320;
      ID_2.ID = 7320;
     ros::init(argc, argv, "listener");
@@ -177,7 +181,7 @@ int main(int argc, char *argv[])
     //ros::Timer timer1 = n.createTimer(ros::Duration(1), publishAllTheRos);
     cv::VideoCapture in_video;
 
-    in_video.open(3);//Camera index should be a passed parameter
+    in_video.open(0);//Camera index should be a passed parameter
 
     cv::Ptr<cv::aruco::Dictionary> dictionary =
             cv::aruco::getPredefinedDictionary(cv::aruco::DICT_ARUCO_ORIGINAL);
@@ -194,6 +198,7 @@ int main(int argc, char *argv[])
               << dist_coeffs << std::endl;
     // Init cvui and tell it to create a OpenCV window, i.e. cv::namedWindow(WINDOW_NAME).
     cvui::init(WINDOW_NAME);
+    state = Picking;
 
 
     while (in_video.grab()&& ros::ok()){ //Loop while video exists
@@ -273,7 +278,27 @@ int main(int argc, char *argv[])
 //End Image Processing
         //Display image into the interface
         cvui::image(frame, 375, 10, image_copy);
-        //update the dialog box
+
+        cv::Mat Key = cv::Mat(240, 120, CV_8UC3);
+        
+        rectangle(frame, cv::Point2f(810, 493), cv::Point2f(1015,593),cv::Scalar( 52,52,52), -1, 8, 0);
+
+        cv::circle( frame,
+            cv::Point2f(830, 505),
+             10,
+         cv::Scalar( 255,255,0),
+         2,
+         8 );
+        rectangle(frame, cv::Point2f(820, 520), cv::Point2f(840,540),cv::Scalar( 255,255,0), 2, 8, 0);
+        rectangle(frame, cv::Point2f(820, 545), cv::Point2f(840,565),cv::Scalar( 0,255,255), 2, 8, 0);
+        rectangle(frame, cv::Point2f(820, 571), cv::Point2f(840,591),cv::Scalar( 255,0,0), 2, 8, 0);
+
+        cvui::text(frame, 850, 500, "Place Midpoint", 0.5, 0xffffff);
+        cvui::text(frame, 850, 523, "Place Marker", 0.5, 0xffffff);
+        cvui::text(frame, 850, 550, "Pick Marker", 0.5, 0xffffff);
+        cvui::text(frame, 850, 574, "Available Markers", 0.5, 0xffffff);
+        cvui::image(frame, 375, 495, coordinateFrame);
+
         updateDialog();
         //display and check buttons
         UIButtons();
@@ -291,7 +316,6 @@ int main(int argc, char *argv[])
         // Show everything on the screen
         cvui::update();
         cv::imshow(WINDOW_NAME, frame);
-
 
         // Check if ESC key was pressed
             if (cv::waitKey(20) == 27|| cv::getWindowProperty(WINDOW_NAME, cv::WND_PROP_ASPECT_RATIO) < 0) {
@@ -623,27 +647,27 @@ void CheckMouse(){
             int mouseX = cvui::mouse().x-375;
             int mouseY = cvui::mouse().y-10;
             //if pick up marker exists in this area & is selected and state == 0
-            if (state == Picking) {
+            if (state == Picking|| state == WrongLow || state == WrongPick || state == Place ) {
                 printf("Picking Up at %d %d \n", mouseX, mouseY);
                 int ID = LocateNearestMarker({(float) mouseX, (float) mouseY}).ID;
 
                 if (ID == PlaceID) {
-                    state = Wrong;
+                    state = WrongPick;
                 } else if (ID < 3) {
                     state = WrongLow;
                 } else {
                     PickID = ID;
-                    state = Picking;
+                    state = Place;
                 }
                 checkReady();
 
 
-            } else if (state == Placing) {
+            } else if (state == Placing|| state == WrongPlace) {
 
                 printf("Placing at %d %d \n", mouseX, mouseY);
                 int ID = LocateNearestMarker({(float) mouseX, (float) mouseY}).ID;
                 if (ID == PickID) {
-                    state = Wrong;
+                    state = WrongPlace;
                 } else {
                     PlaceID = ID;
                     state = Placing;
