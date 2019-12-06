@@ -352,16 +352,6 @@ class MarkerTaskGenerator(TaskGenerator):
         # rstick = state['rstick']
         # lstick = state['lstick']
         
-        if gripperSpeed == 0:
-            gripperSpeed = 5;
-        
-        if grabbing:
-            if grabAmount < maxGripPercent:
-                grabAmount = grabAmount + 0.3*gripperSpeed/50
-        else:
-            print grabAmount
-            if grabAmount > 0:
-                grabAmount = grabAmount - 0.3*gripperSpeed/50
 
         gripPercent = grabAmount
 
@@ -401,8 +391,8 @@ class MarkerTaskGenerator(TaskGenerator):
                 rotxyz = np.matmul(rotxy, rotz)
                 if not lastCommand == "live":
                     print "SAVING X Y and Z"
-                    savedx = hand[0]
-                    savedy = hand[1]
+                    savedx = hand[0] + 0.06
+                    savedy = hand[1] - 0.1
                     savedz = hand[2]
                 print savedx
                 print savedy
@@ -421,6 +411,18 @@ class MarkerTaskGenerator(TaskGenerator):
                 print(pos_msg)
                 return pos_msg
             elif command == "act":
+            
+                if gripperSpeed == 0:
+                    gripperSpeed = 5;
+        
+                if grabbing:
+                    if grabAmount < maxGripPercent:
+                        grabAmount = grabAmount + 0.3*gripperSpeed/50
+                else:
+                    print grabAmount
+                    if grabAmount > 0:
+                        grabAmount = grabAmount - 0.3*gripperSpeed/50
+            
                 xpick = state['markers'][pickId].transform.translation.x
                 ypick = state['markers'][pickId].transform.translation.y
                 zpick = state['markers'][pickId].transform.translation.z
@@ -457,10 +459,17 @@ class MarkerTaskGenerator(TaskGenerator):
                     else:
                         self.pub_state.publish("Working")
                         marker = state['markers'][placeId]
+                        layer2x = 0.0
+                        layer2y = 0.0
+                        layer2z = 0.0
+                        if marker.transform.translation.z >= 0.5:
+                            layer2x = -0.2
+                            layer2y = -0.1
+                            layer2z = -0.1
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
-                                   "position": [xplace + offsetx + .13, yplace + offsety + .083,
-                                                zplace + zcalcplace + offsetz + zwaypoint + 0.26],
+                                   "position": [xplace + offsetx + .13 + layer2x, yplace + offsety + .083 + layer2y,
+                                                zplace + zcalcplace + offsetz + zwaypoint + 0.26 + layer2z],
                                    "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
                                    # "rotation":[0,-1,0,1,0,0,0,0,1],   #90 deg rotation about z axis

@@ -138,6 +138,7 @@ void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
             command.data = "cancel";
             InMidpoint = false;
             printf("Done");
+            ApplyOffsets = false;
         }
         else if (currentRobotStatus == "Fail") {
             command.data = "wait";
@@ -394,6 +395,8 @@ void UIButtons(){
         LiveOffsets = false;
         PrevLiveOffsets = false;
         state = Picking;
+        ApplyOffsets = false;
+
     }
 
     if (cvui::button(frame, 180, 80,120,40 , PlaceBtn)) {
@@ -442,6 +445,8 @@ void UIButtons(){
         Act = "Act";
         PlaceBtn = "Place On";
         command.data = "cancel";
+        ApplyOffsets = false;
+
         checkReady();
     }
 
@@ -461,6 +466,7 @@ void UIButtons(){
         LiveOffsets = false;
         PrevLiveOffsets = false;
         GripperOpen = false;
+        ApplyOffsets = false;
 
         //offset and gripper variables
         XOffset = 0, YOffset = 0, ZOffset = 0; //in mm
@@ -477,6 +483,7 @@ void UIButtons(){
         //tell robot to go to its neutral pose
         command.data = "home";
         Act = "Act";
+        ApplyOffsets = false;
     }
 
 }
@@ -493,7 +500,6 @@ void OffsetsWindow(){
     cvui::beginColumn(frame, 40, 200, 145, 160,10);
 
         if(cvui::checkbox("Apply offsets", &ApplyOffsets, 0xffffff)){
-            PrevLiveOffsets = false;
             LiveOffsets = false;
             Offsets.position.x = double(XOffset)/1000;
             Offsets.position.y = double(YOffset)/1000;
@@ -559,6 +565,7 @@ void OffsetsWindow(){
             command.data = "wait";
             CommandPublisher.publish(command);
             state = PrevState;
+            PrevLiveOffsets = false;
         }
                 
         if (!LiveOffsets && !ApplyOffsets){
@@ -673,6 +680,8 @@ void CheckMouse(){
                     state = Placing;
 
                 }
+                ApplyOffsets = false;
+
                 checkReady();
 
             }else if (state == MidPoint1 || state == MidPoint2){
