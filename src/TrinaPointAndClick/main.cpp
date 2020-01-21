@@ -819,11 +819,11 @@ void MidpointMarkers(Marker MarkerA, Marker MarkerB){
         PoseStamped.header.stamp = ros::Time::now();
         PoseStamped.header.frame_id = std::to_string(999);
         PoseStamped.pose.orientation.w = 0;
-        PoseStamped.pose.orientation.x = (rvecs[0][0]+rvecs[1][0])/2;
-        PoseStamped.pose.orientation.y = (rvecs[0][1]+rvecs[1][1])/2;
+        PoseStamped.pose.orientation.x = ((rvecs[0][0]+rvecs[1][0])/2);
+        PoseStamped.pose.orientation.y = ((rvecs[0][1]+rvecs[1][1])/2);
         PoseStamped.pose.orientation.z = (rvecs[0][2]+rvecs[1][2])/2;
-        PoseStamped.pose.position.x = (tvecs[0][0]+tvecs[1][0])/2;
-        PoseStamped.pose.position.y = (tvecs[0][1]+tvecs[1][1])/2;
+        PoseStamped.pose.position.x = ((tvecs[0][0]+tvecs[1][0])/2)+0.0305;
+        PoseStamped.pose.position.y = ((tvecs[0][1]+tvecs[1][1])/2)+0.04;
         PoseStamped.pose.position.z = (tvecs[0][2]+tvecs[1][2])/2;
         MarkerPosePublisher.publish(PoseStamped);
                    
