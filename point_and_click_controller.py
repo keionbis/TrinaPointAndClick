@@ -71,6 +71,7 @@ doneTimer = 0
 gripperSpeed = 0.0
 ICanceled = False
 zwaypoint = 0.0
+ywaypoint = 0.0
 
 # Import Modules
 import os
@@ -334,10 +335,10 @@ class MarkerTaskGenerator(TaskGenerator):
         global gripperSpeed
         global ICanceled
         global zwaypoint
+        global ywaypoint
         
         if ICanceled:
-            print "CANCEL WAS HIT!"
-            print "AT SOME POINT, TRINA SHOULD HAVE STOPPED"
+            print "The cancel button was hit"
 
         # get robot state data
         self.getRobotStatus()
@@ -357,12 +358,12 @@ class MarkerTaskGenerator(TaskGenerator):
 
         # publish grip command to the correct hand
         if (self.limb == 'right'):
-            self.pub_r.publish(gripPercent)
-        else:
             self.pub_l.publish(gripPercent)
+        else:
+            self.pub_r.publish(gripPercent)
             
         if command == "cancel":
-            print "I RECEIVED CANCEL"
+            print "cancel"
             ICanceled = True
             doneTimer = 0
             grabbing = False
@@ -371,8 +372,6 @@ class MarkerTaskGenerator(TaskGenerator):
             got_to_waypoint = False
             placing = False
             grabAmount = 0
-            print "THE CANCEL IS STILL HAPPENING"
-            print "THE GRIPPER SHOULD HAVE OPENED"
 
         if command == "home":
             doneTimer = 0
@@ -438,14 +437,14 @@ class MarkerTaskGenerator(TaskGenerator):
                 print grabbing
                 
                 if ascend:
-                    print "ASCEND"
+                    print "ascend"
                     if placing and zwaypoint <=0.0:
                         zwaypoint = 0.1
                     else:
                         zwaypoint = 0.30
                 
                 if deathFromAbove:
-                    print "DEATH FROM ABOVE!"
+                    print "approaching from above"
                     if zwaypoint <= 0.0:
                         zwaypoint = 0.30
                 
@@ -468,7 +467,7 @@ class MarkerTaskGenerator(TaskGenerator):
                             layer2z = -0.1
                         pos_msg = {"type": "CartesianPose",
                                    "limb": "left",
-                                   "position": [xplace + offsetx + .13 + layer2x, yplace + offsety + .083 + layer2y,
+                                   "position": [xplace + offsetx + .13 + layer2x, yplace + offsety + ywaypoint + .083 + layer2y,
                                                 zplace + zcalcplace + offsetz + zwaypoint + 0.26 + layer2z],
                                    "rotation": [rotxyz[2,0],rotxyz[2,1],rotxyz[2,2],-rotxyz[0,0],-rotxyz[0,1],-rotxyz[0,2],-rotxyz[1,0],-rotxyz[1,1],-rotxyz[1,2]],
                                    # "rotation":[1,0,0,0,1,0,0,0,1],
@@ -483,7 +482,7 @@ class MarkerTaskGenerator(TaskGenerator):
                         print(marker.id_number)
                         dist = np.sqrt(np.square(hand[0] - xplace - offsetx - .08) + np.square(hand[1] - yplace - offsety - .185) + np.square(hand[2] - zplace - offsetz - zwaypoint + .69))
                         print(hand[0] - xplace - offsetx - .08)
-                        print(hand[1] - yplace - offsety - .185)
+                        print(hand[1] - yplace - offsety - ywaypoint - .185)
                         print(hand[2] - zplace - offsetz - zwaypoint + .69)
                         print(dist)
                         if dist < 0.025:
@@ -494,6 +493,7 @@ class MarkerTaskGenerator(TaskGenerator):
                                 else:
                                     zwaypoint = zwaypoint - 0.1
                             elif ascend:
+                                ywaypoint = 0.305
                                 if zwaypoint < 0.3:
                                     zwaypoint = zwaypoint + 0.1
                                 else:
@@ -503,6 +503,7 @@ class MarkerTaskGenerator(TaskGenerator):
                                         doneTimer = doneTimer + 1
                                     else:
                                         doneTimer = 0
+                                        ywaypoint = 0.0
                                         ascend = False
                                         placing = False
                                         ICanceled = False
@@ -511,6 +512,7 @@ class MarkerTaskGenerator(TaskGenerator):
                         return pos_msg
                 else:
                     # pick up cup
+                    ywaypoint = 0.0
                     if got_to_waypoint:
                         self.pub_state.publish("Working")
                         grabbing = True
