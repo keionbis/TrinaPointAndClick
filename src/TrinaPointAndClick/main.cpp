@@ -15,11 +15,14 @@
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/Pose.h"
+#include<string>
+
 #define WINDOW_NAME	"Autonomous Grasping"
 #define CONFIRMATION 50
 #define MAXCLICKERROR 10000
 #define PI 3.14159265
 #define WINDOW1_NAME "Fail"
+static int numcups = 4;
 //Marker Data Struct definition
 typedef struct Marker{
     int ID;
@@ -49,6 +52,7 @@ void checkReady();
 void MidpointMarkers(Marker MarkerA, Marker MarkerB);
 void FailWindow(const cv::String& name);
 void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status);
+void shuffle();
 //GLOBAL VARIABLES
 
 //Marker vectors
@@ -68,7 +72,7 @@ static std::string Picking = "Click a marker to pick up.";
 static std::string Placing = "Click a marker to place.";
 static std::string MidPoint1 = "Click the first Marker.";
 static std::string MidPoint2 = "Click the second Marker.";
-
+static std::vector<int> order;
 static std::string Doing = "Robot in action now.";
 static std::string Done = "I did it! Now click the 'Pick' button.";
 static std::string Ready = "Click the 'Act' button when ready.";
@@ -97,7 +101,7 @@ static int ClosePercent = 95, CloseSpeedPercent = 50; //Gripper data
 static Marker tmpData;
 static int PickID = 2512;
 static int PlaceID = 7320;
-
+static std::vector <int> cupIDs;
 //ROS Publishers
 static ros::Publisher MarkerPosePublisher;
 static ros::Publisher GripperSpeedPublisher;
@@ -116,8 +120,8 @@ float actual_marker_l = 0.101; // this should be in meters
 bool InMidpoint = false;
 static Marker ID_1;
 static Marker ID_2;
-
-
+float tryAgainOffset = 0.0;
+int placeorder[3] = {0,0,0};
 void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
 
 
@@ -158,10 +162,31 @@ void CurrentStatusCallback(const std_msgs::String::ConstPtr& Status){
 
 int main(int argc, char *argv[])
 {
+
+    
+    placeorder[0] = rand()%numcups;
+
+
+
+    while(placeorder[0] == placeorder[1]){
+        placeorder[1] = rand()%numcups;
+    }
+
+
+    while(placeorder[0] == placeorder[2] ||  placeorder[1] == placeorder[2]){
+        placeorder[2] = rand()%numcups;
+    }
+    
+    printf("Place Order:%d, %d, %d\n", placeorder[0], placeorder[1], placeorder[2]);
+    
+    
     int wait_time = 10;
     cv::Mat image;
     std::ostringstream vector_to_marker;
     cv::Mat coordinateFrame = cv::imread("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/frame.png", cv::IMREAD_COLOR);
+    cv::Mat WPILogo = cv::imread("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/wpiLogo.png");
+    cv::Mat HIROLogo = cv::imread("/home/trina/TrinaPointAndClick/src/TrinaPointAndClick/hiro_logo.png");
+
      ID_1.ID = 7320;
      ID_2.ID = 7320;
     ros::init(argc, argv, "listener");
@@ -237,6 +262,37 @@ int main(int argc, char *argv[])
                 }
                 ConfirmedIDs[x].isVisible = false;
             }
+            cupIDs.clear();
+            for(int j = 0;j<ConfirmedIDs.size();j++){
+                if(ConfirmedIDs[j].ID>2){
+                    cupIDs.push_back(j);
+                  }
+            }
+            order.clear();
+            if(cupIDs.size()>3){
+                numcups = cupIDs.size();
+                if(placeorder[0]<cupIDs.size())
+                    order.push_back(ConfirmedIDs[cupIDs[placeorder[0]]].ID);
+                else
+                    order.push_back(0);
+                if(placeorder[2]<cupIDs.size())
+                    order.push_back(ConfirmedIDs[cupIDs[placeorder[1]]].ID);
+                else
+                    order.push_back(0);
+                if(placeorder[2]<cupIDs.size())
+                    order.push_back(ConfirmedIDs[cupIDs[placeorder[2]]].ID);
+                else
+                    order.push_back(0);
+                if(order[0]!= order[1] && order[0] != order[2] && order[1] != order[2]){
+                cvui::text(frame, 160, 150, std::to_string(order[0]), 0.5, 0xffffff);
+                cvui::text(frame, 145, 180, std::to_string(order[1]), 0.5, 0xffffff);
+                cvui::text(frame, 175, 180, std::to_string(order[2]), 0.5, 0xffffff);
+                }
+                else{shuffle();}
+            }
+            
+            //display pyramid
+            
             // draw axis for each marker
             for (int i = 0; i < ids.size(); i++)
             {
@@ -264,7 +320,7 @@ int main(int argc, char *argv[])
                     PoseStamped.pose.orientation.x = rvecs[i][0];
                     PoseStamped.pose.orientation.y = rvecs[i][1];
                     PoseStamped.pose.orientation.z = rvecs[i][2];
-                    PoseStamped.pose.position.x = tvecs[i][0];
+                    PoseStamped.pose.position.x = tvecs[i][0]+tryAgainOffset;
                     PoseStamped.pose.position.y = tvecs[i][1];
                     PoseStamped.pose.position.z = tvecs[i][2];
                 }
@@ -308,6 +364,11 @@ int main(int argc, char *argv[])
         //display offsets window
         if (Act == "Resume") {
             OffsetsWindow();
+        }
+        else{
+
+                cvui::image(frame, 55, 200, WPILogo);                
+                cvui::image(frame, 55, 390, HIROLogo);
         }
         // publish all the ros topics
         publishAllTheRos();
@@ -426,6 +487,7 @@ void UIButtons(){
                 state = Doing;
                 command.data = "act";
                 Act = "Pause";
+                tryAgainOffset = 0;
             }
         }
         else if (Act == "Pause"){
@@ -487,7 +549,9 @@ void UIButtons(){
         Act = "Act";
         ApplyOffsets = false;
     }
-
+    if (cvui::button(frame, 50, 550,120,40 , "Shuffle")) {
+        shuffle();
+    }
 }
 
 
@@ -853,7 +917,7 @@ void FailWindow(const cv::String& name) {
         cv::destroyWindow(WINDOW1_NAME);
         cv::waitKey(1);
         cvui::context(WINDOW_NAME);
-
+        tryAgainOffset = 0.01;
         return;
 
 
@@ -890,4 +954,18 @@ void FailWindow(const cv::String& name) {
 
     // Show the content of this window on the screen
     cvui::imshow(name, error_frame);
+}
+void shuffle(){
+placeorder[0] = rand()%numcups;
+        while(placeorder[0] == placeorder[1]){
+            placeorder[1] = rand()%numcups;
+            }
+
+
+        while(placeorder[0] == placeorder[2] ||  placeorder[1] == placeorder[2]){
+                placeorder[2] = rand()%numcups;
+            }
+            
+            printf("Place Order:%d, %d, %d\n", placeorder[0], placeorder[1], placeorder[2]);
+            
 }

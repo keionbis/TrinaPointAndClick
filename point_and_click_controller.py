@@ -358,9 +358,9 @@ class MarkerTaskGenerator(TaskGenerator):
 
         # publish grip command to the correct hand
         if (self.limb == 'right'):
-            self.pub_l.publish(gripPercent)
-        else:
             self.pub_r.publish(gripPercent)
+        else:
+            self.pub_l.publish(gripPercent)
             
         if command == "cancel":
             print "cancel"
@@ -847,7 +847,7 @@ def callback_speed(data):
 def callback_percent(data):
     # percent
     global maxGripPercent
-    maxGripPercent = data.data
+    maxGripPercent = data.data+30
 
 def callback_gripper(data):
     # gripper state i guess
